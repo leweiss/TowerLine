@@ -1,0 +1,94 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 1280" role="img" aria-labelledby="title desc">
+  <title id="title">Wizard fort duel on a tabletop board</title>
+  <desc id="desc">Two magical circular forts face each other across a tabletop grid, with miniature soldiers marching between them.</desc>
+  <defs>
+    <linearGradient id="table" x1="0" x2="0" y1="0" y2="1">
+      <stop offset="0" stop-color="#2c2118"/>
+      <stop offset="0.52" stop-color="#3d3329"/>
+      <stop offset="1" stop-color="#241e1d"/>
+    </linearGradient>
+    <radialGradient id="greenGlow" cx="50%" cy="74%" r="38%">
+      <stop offset="0" stop-color="#b7ffb5" stop-opacity="0.9"/>
+      <stop offset="0.22" stop-color="#6de879" stop-opacity="0.42"/>
+      <stop offset="1" stop-color="#6de879" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="violetGlow" cx="50%" cy="25%" r="38%">
+      <stop offset="0" stop-color="#ffc2ff" stop-opacity="0.9"/>
+      <stop offset="0.22" stop-color="#b36dff" stop-opacity="0.42"/>
+      <stop offset="1" stop-color="#b36dff" stop-opacity="0"/>
+    </radialGradient>
+    <filter id="softGlow" x="-40%" y="-40%" width="180%" height="180%">
+      <feGaussianBlur stdDeviation="5" result="blur"/>
+      <feMerge>
+        <feMergeNode in="blur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+  </defs>
+
+  <rect width="720" height="1280" rx="52" fill="#090b10"/>
+  <rect x="34" y="34" width="652" height="1212" rx="38" fill="url(#table)" stroke="#6d5941" stroke-width="2"/>
+  <rect x="70" y="70" width="580" height="1140" fill="url(#greenGlow)"/>
+  <rect x="70" y="70" width="580" height="1140" fill="url(#violetGlow)"/>
+
+  <g opacity="0.28" stroke="#d9bc82" stroke-width="1">
+    <path d="M90 130H630M90 210H630M90 290H630M90 370H630M90 450H630M90 530H630M90 610H630M90 690H630M90 770H630M90 850H630M90 930H630M90 1010H630M90 1090H630M90 1170H630"/>
+    <path d="M120 92V1188M200 92V1188M280 92V1188M360 92V1188M440 92V1188M520 92V1188M600 92V1188"/>
+  </g>
+
+  <g fill="none" stroke-linecap="round" stroke-linejoin="round">
+    <g transform="translate(360 940)" filter="url(#softGlow)">
+      <circle r="122" stroke="#8dff9a" stroke-opacity="0.5" stroke-width="3"/>
+      <circle r="82" stroke="#d8ffd6" stroke-opacity="0.82" stroke-width="9"/>
+      <circle r="47" stroke="#73e781" stroke-opacity="0.9" stroke-width="8"/>
+      <path d="M-123 0c25-17 48-26 70-29M53-29c27 5 51 15 70 29" stroke="#f0d39a" stroke-width="16"/>
+      <path d="M-87-87l28 22M87-87l-28 22M-87 87l28-22M87 87l-28-22" stroke="#8dff9a" stroke-width="14"/>
+      <circle cx="-84" cy="-84" r="21" fill="#2b3a2b" stroke="#d8ffd6" stroke-width="8"/>
+      <circle cx="84" cy="-84" r="21" fill="#2b3a2b" stroke="#d8ffd6" stroke-width="8"/>
+      <circle cx="-84" cy="84" r="21" fill="#2b3a2b" stroke="#d8ffd6" stroke-width="8"/>
+      <circle cx="84" cy="84" r="21" fill="#2b3a2b" stroke="#d8ffd6" stroke-width="8"/>
+      <circle r="28" fill="#111a16" stroke="#d8ffd6" stroke-width="5"/>
+      <path d="M0-17l16 34h-32z" fill="#8dff9a"/>
+    </g>
+
+    <g transform="translate(360 330)" filter="url(#softGlow)">
+      <circle r="122" stroke="#d88dff" stroke-opacity="0.5" stroke-width="3"/>
+      <circle r="82" stroke="#ffd5ff" stroke-opacity="0.82" stroke-width="9"/>
+      <circle r="47" stroke="#c879ff" stroke-opacity="0.9" stroke-width="8"/>
+      <path d="M-123 0c25 17 48 26 70 29M53 29c27-5 51-15 70-29" stroke="#f0d39a" stroke-width="16"/>
+      <path d="M-87-87l28 22M87-87l-28 22M-87 87l28-22M87 87l-28-22" stroke="#d88dff" stroke-width="14"/>
+      <circle cx="-84" cy="-84" r="21" fill="#34283a" stroke="#ffd5ff" stroke-width="8"/>
+      <circle cx="84" cy="-84" r="21" fill="#34283a" stroke="#ffd5ff" stroke-width="8"/>
+      <circle cx="-84" cy="84" r="21" fill="#34283a" stroke="#ffd5ff" stroke-width="8"/>
+      <circle cx="84" cy="84" r="21" fill="#34283a" stroke="#ffd5ff" stroke-width="8"/>
+      <circle r="28" fill="#18121c" stroke="#ffd5ff" stroke-width="5"/>
+      <path d="M0-17l16 34h-32z" fill="#d88dff"/>
+    </g>
+  </g>
+
+  <g opacity="0.92">
+    <g fill="#84e98b" stroke="#dcffd9" stroke-width="3">
+      <circle cx="300" cy="760" r="10"/><path d="M290 782h20l-4-14h-12z"/>
+      <circle cx="360" cy="746" r="10"/><path d="M350 768h20l-4-14h-12z"/>
+      <circle cx="420" cy="760" r="10"/><path d="M410 782h20l-4-14h-12z"/>
+      <path d="M304 820l25-42 25 42 25-42 25 42" fill="none" stroke="#dcffd9" stroke-width="8"/>
+      <path d="M250 850h42l-12-24c22-25 42-32 58-22" fill="#84e98b"/>
+      <path d="M428 850h42l-12-24c-22-25-42-32-58-22" fill="#84e98b"/>
+    </g>
+    <g fill="#c879ff" stroke="#ffd5ff" stroke-width="3">
+      <circle cx="300" cy="520" r="10"/><path d="M290 542h20l-4-14h-12z"/>
+      <circle cx="360" cy="536" r="10"/><path d="M350 558h20l-4-14h-12z"/>
+      <circle cx="420" cy="520" r="10"/><path d="M410 542h20l-4-14h-12z"/>
+      <path d="M304 466l25 42 25-42 25 42 25-42" fill="none" stroke="#ffd5ff" stroke-width="8"/>
+      <path d="M250 430h42l-12 24c22 25 42 32 58 22" fill="#c879ff"/>
+      <path d="M428 430h42l-12 24c-22 25-42 32-58 22" fill="#c879ff"/>
+    </g>
+  </g>
+
+  <g opacity="0.6" fill="none" stroke-width="4" stroke-linecap="round">
+    <path d="M86 1030c-38 28-55 66-46 114" stroke="#86ff91"/>
+    <path d="M634 250c38-28 55-66 46-114" stroke="#d88dff"/>
+    <path d="M70 1040c23 6 38 25 45 57" stroke="#86ff91"/>
+    <path d="M650 240c-23-6-38-25-45-57" stroke="#d88dff"/>
+  </g>
+</svg>

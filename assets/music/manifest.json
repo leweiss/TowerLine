@@ -1,0 +1,23 @@
+{
+  "fadeSeconds": 2,
+  "tracks": [
+    {
+      "id": "last-gate-holds",
+      "title": "The Last Gate Holds",
+      "src": "/assets/music/track-1.m4a",
+      "durationSeconds": 159.24
+    },
+    {
+      "id": "broken-standard",
+      "title": "Under the Broken Standard",
+      "src": "/assets/music/track-2.m4a",
+      "durationSeconds": 147.7
+    },
+    {
+      "id": "iron-gate",
+      "title": "Sovereign of the Iron Gate",
+      "src": "/assets/music/track-3.m4a",
+      "durationSeconds": 157.08
+    }
+  ]
+}

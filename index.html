@@ -1,0 +1,134 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+    <title>TowerLine Human vs AI</title>
+    <link rel="stylesheet" href="./src/styles.css?v=instructions-6">
+  </head>
+  <body>
+    <main class="game-shell" aria-label="TowerLine human versus AI simulation">
+      <canvas id="game" aria-label="Human-simulated wizard versus AI wizard drawing forts and chess-piece soldiers"></canvas>
+      <section id="commandControls" class="command-controls" aria-label="Wave command controls" hidden>
+        <button class="command-button is-active" type="button" data-wave-mode="muster" aria-pressed="true">Muster</button>
+        <button class="command-button" type="button" data-wave-mode="attack" aria-pressed="false">Attack</button>
+      </section>
+      <section id="splashScreen" class="splash-screen" role="button" tabindex="0" aria-label="Start game">
+        <img class="splash-art" src="./assets/splash.png" alt="">
+        <div class="splash-scrim"></div>
+        <div class="splash-copy">
+          <h1 data-title="TOWERLINE">TOWERLINE</h1>
+          <button id="startGameButton" class="splash-pill" type="button">Tap the Screen to Begin</button>
+          <button id="instructionsButton" class="splash-pill splash-pill-secondary" type="button">Instructions</button>
+        </div>
+      </section>
+      <section id="instructionsScreen" class="instructions-screen" aria-labelledby="instructionsTitle" hidden>
+        <div class="instructions-panel">
+          <h2 id="instructionsTitle">Spellbook</h2>
+          <div class="spell-list" aria-label="Castable spells">
+            <article class="spell-card">
+              <svg class="spell-glyph" viewBox="0 0 80 56" aria-hidden="true">
+                <path d="M16 30c0-10 8-18 20-19 13-1 25 8 26 20 1 11-8 20-22 20-13 0-24-8-24-21 0-7 4-13 10-16"></path>
+                <path d="M18 30c-8-4-8-13 0-16 7-2 12 3 9 9-2 5-7 6-11 4"></path>
+                <path d="M61 28l-11 7 12 8"></path>
+              </svg>
+              <div class="spell-copy">
+                <strong>DEFENSIVE WALL</strong>
+                <span>Raises a defensive wall. The footprint is squared up as it manifests, but uneven drawing makes weaker walls; sharp turns add bastions and small loops add towers.</span>
+              </div>
+            </article>
+            <article class="spell-card">
+              <svg class="spell-glyph" viewBox="0 0 80 56" aria-hidden="true">
+                <path d="M33 29c4-3 10-3 14 0"></path>
+                <circle cx="40" cy="29" r="4"></circle>
+              </svg>
+              <div class="spell-copy">
+                <strong>PAWNS</strong>
+                <span>Tap one or more dots, then let the marks settle. Each dot adds another cheap soldier for pressure, screening, and holding the field.</span>
+              </div>
+            </article>
+            <article class="spell-card">
+              <svg class="spell-glyph" viewBox="0 0 80 56" aria-hidden="true">
+                <path d="M16 38c12-5 28-13 48-22"></path>
+              </svg>
+              <div class="spell-copy">
+                <strong>LANCERS</strong>
+                <span>Creates lancers: reach soldiers that are useful in a crowd and decent against walls.</span>
+              </div>
+            </article>
+            <article class="spell-card">
+              <svg class="spell-glyph" viewBox="0 0 80 56" aria-hidden="true">
+                <path d="M24 16c9 8 20 16 32 25"></path>
+                <path d="M55 15c-10 8-21 17-32 27"></path>
+              </svg>
+              <div class="spell-copy">
+                <strong>BLADES</strong>
+                <span>Creates blades: close fighters that punish enemy soldiers at the wall or in the open.</span>
+              </div>
+            </article>
+            <article class="spell-card">
+              <svg class="spell-glyph" viewBox="0 0 80 56" aria-hidden="true">
+                <path d="M54 10c-8 8-16 16-23 25-4 6-2 13 6 14 10 2 19-5 18-16-1-9-9-15-20-13"></path>
+              </svg>
+              <div class="spell-copy">
+                <strong>SAPPERS</strong>
+                <span>Creates sappers: siege pieces that burrow under walls and explode, including when killed.</span>
+              </div>
+            </article>
+            <article class="spell-card">
+              <svg class="spell-glyph" viewBox="0 0 80 56" aria-hidden="true">
+                <path d="M19 16c11 0 25-1 39 0C49 25 38 32 25 42c12 0 25-1 38 0"></path>
+              </svg>
+              <div class="spell-copy">
+                <strong>BATTERING RAM</strong>
+                <span>Creates a battering ram: slow, arrow-resistant, and excellent against walls, but vulnerable to ground troops.</span>
+              </div>
+            </article>
+            <article class="spell-card">
+              <svg class="spell-glyph" viewBox="0 0 80 56" aria-hidden="true">
+                <path d="M16 43c2-11 4-20 7-31 7 9 11 17 17 25 6-9 11-17 17-25 3 11 5 21 7 31"></path>
+              </svg>
+              <div class="spell-copy">
+                <strong>KNIGHTS</strong>
+                <span>Creates knights: fast heavy pieces that jump forward and threaten weak lanes.</span>
+              </div>
+            </article>
+            <article class="spell-card">
+              <svg class="spell-glyph" viewBox="0 0 80 56" aria-hidden="true">
+                <path d="M16 13c3 11 5 21 8 31 7-9 11-17 16-25 6 8 10 16 16 25 3-10 5-20 8-31"></path>
+              </svg>
+              <div class="spell-copy">
+                <strong>CROWNS</strong>
+                <span>Creates crowns: support pieces that strengthen nearby friendly troops.</span>
+              </div>
+            </article>
+          </div>
+          <div class="instructions-actions">
+            <button id="instructionsBack" class="splash-pill splash-pill-secondary" type="button">Back</button>
+            <button id="instructionsStart" class="splash-pill" type="button">Begin</button>
+          </div>
+        </div>
+      </section>
+      <section id="endScreen" class="end-screen" aria-live="polite" hidden>
+        <div class="end-panel">
+          <div id="resultPill" class="result-pill" data-result="VICTORY!">VICTORY!</div>
+          <button id="playAgain" class="play-again" type="button">Play Again</button>
+          <div id="statsSummary" class="stats-summary"></div>
+          <table class="stats-table" aria-label="Match statistics">
+            <thead>
+              <tr>
+                <th>Piece</th>
+                <th>You Made</th>
+                <th>You Lost</th>
+                <th>Rival Made</th>
+                <th>Rival Lost</th>
+              </tr>
+            </thead>
+            <tbody id="statsBody"></tbody>
+          </table>
+        </div>
+      </section>
+    </main>
+    <script type="module" src="./src/app.js"></script>
+  </body>
+</html>

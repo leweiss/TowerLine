@@ -1,0 +1,6 @@
+.DS_Store
+node_modules/
+.vercel/
+
+# Original source videos are kept locally; compressed music lives in assets/music.
+video*.mp4

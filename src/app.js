@@ -136,8 +136,12 @@ const OPENING_HINT_DELAY = 3;
 const OPENING_HINT_FADE = 0.35;
 const OPENING_HINT_LOOP = 2.5;
 const HIGH_SCORE_KEY = "towerline.highScores.v1";
+const WIN_STREAK_KEY = "towerline.winStreak.v1";
 const HIGH_SCORE_NAME_LIMIT = 20;
 const HIGH_SCORE_LIMIT = 8;
+const SUPABASE_URL = "https://ophqkvkqzxriprqmstkt.supabase.co";
+const SUPABASE_ANON_KEY = "sb_publishable_0mYVes7qaLBawLAsqNpy1A_A1dv3Ujf";
+const SUPABASE_SCORE_TABLE = "TowerLineScores";
 
 let lastNow = performance.now();
 let elapsed = 0;
@@ -149,6 +153,7 @@ let gamePhase = "splash";
 let openingHintDismissed = false;
 let currentScoreResult = null;
 let currentScoreSaved = false;
+let currentWinStreak = 0;
 
 const unitLabels = {
   pawn: "Pawn",
@@ -3445,6 +3450,7 @@ function showEndScreen() {
   const resultText = playerWon ? "VICTORY!" : "Vanquished";
   currentScoreResult = playerWon ? "victory" : "vanquished";
   currentScoreSaved = false;
+  currentWinStreak = updateWinStreak(playerWon);
   resultPill.textContent = resultText;
   resultPill.dataset.result = resultText;
   resultPill.classList.toggle("is-vanquished", !playerWon);
@@ -3465,7 +3471,7 @@ function prepareHighScoreEntry() {
     : "Vanquished runs rank longest survival first.";
 }
 
-function saveCurrentHighScore(event) {
+async function saveCurrentHighScore(event) {
   event.preventDefault();
   if (currentScoreSaved || !currentScoreResult) return;
 
@@ -3476,25 +3482,44 @@ function saveCurrentHighScore(event) {
     return;
   }
 
-  const scores = loadHighScores();
+  saveHighScoreButton.disabled = true;
+  highScoreStatus.textContent = "Saving score...";
+  const score = createCurrentHighScore(name);
+  addLocalHighScore(score, currentScoreResult);
+
+  currentScoreSaved = true;
+  highScoreName.disabled = true;
+
+  try {
+    await saveSupabaseHighScore(score, currentScoreResult);
+    highScoreStatus.textContent = "Score saved online.";
+    await refreshRemoteHighScores();
+  } catch (error) {
+    console.warn("TowerLine high score online save failed", error);
+    highScoreStatus.textContent = "Score saved on this device. Online save failed.";
+    renderHighScoreLists(loadHighScores());
+  }
+}
+
+function createCurrentHighScore(name) {
   const playerStats = playerFaction().stats;
   const rivalStats = otherFaction(playerFaction()).stats;
-  scores[currentScoreResult].push({
+  return {
     name,
     time: Math.max(0, finishedMatchTime),
     piecesKilled: totalPiecesKilled(rivalStats),
     piecesLost: totalPiecesKilled(playerStats),
+    winStreak: currentWinStreak,
     at: Date.now(),
-  });
+  };
+}
+
+function addLocalHighScore(score, result) {
+  const scores = loadHighScores();
+  scores[result].push(score);
   scores.victory = sortHighScores(scores.victory, "victory").slice(0, HIGH_SCORE_LIMIT);
   scores.vanquished = sortHighScores(scores.vanquished, "vanquished").slice(0, HIGH_SCORE_LIMIT);
   saveHighScores(scores);
-
-  currentScoreSaved = true;
-  highScoreName.disabled = true;
-  saveHighScoreButton.disabled = true;
-  highScoreStatus.textContent = "Score saved.";
-  renderHighScores();
 }
 
 function updateHighScoreControls() {
@@ -3533,6 +3558,30 @@ function isValidHighScore(score) {
   return typeof score?.name === "string" && Number.isFinite(score.time);
 }
 
+function loadWinStreak() {
+  try {
+    return Math.max(0, Number.parseInt(localStorage.getItem(WIN_STREAK_KEY) ?? "0", 10) || 0);
+  } catch {
+    return 0;
+  }
+}
+
+function saveWinStreak(streak) {
+  localStorage.setItem(WIN_STREAK_KEY, String(Math.max(0, streak)));
+}
+
+function updateWinStreak(playerWon) {
+  const previousStreak = loadWinStreak();
+  if (playerWon) {
+    const nextStreak = previousStreak + 1;
+    saveWinStreak(nextStreak);
+    return nextStreak;
+  }
+
+  saveWinStreak(0);
+  return previousStreak;
+}
+
 function totalPiecesKilled(stats) {
   return Object.values(stats.killed).reduce((total, count) => total + count, 0);
 }
@@ -3546,8 +3595,94 @@ function sortHighScores(scores, result) {
 
 function renderHighScores() {
   const scores = loadHighScores();
+  renderHighScoreLists(scores);
+  refreshRemoteHighScores();
+}
+
+function renderHighScoreLists(scores) {
   victoryScores.innerHTML = renderHighScoreRows(sortHighScores(scores.victory, "victory"), "No victories yet");
   vanquishedScores.innerHTML = renderHighScoreRows(sortHighScores(scores.vanquished, "vanquished"), "No last stands yet");
+}
+
+async function refreshRemoteHighScores() {
+  try {
+    const remoteScores = await loadSupabaseHighScores();
+    saveHighScores(remoteScores);
+    renderHighScoreLists(remoteScores);
+  } catch (error) {
+    console.warn("TowerLine high score online load failed", error);
+  }
+}
+
+async function saveSupabaseHighScore(score, result) {
+  const response = await fetch(supabaseScoreUrl(), {
+    method: "POST",
+    headers: supabaseHeaders("return=minimal"),
+    body: JSON.stringify({
+      player_name: score.name,
+      result,
+      elapsed_seconds: score.time,
+      win_streak: score.winStreak ?? 0,
+      pieces_killed: score.piecesKilled ?? 0,
+      pieces_lost: score.piecesLost ?? 0,
+    }),
+  });
+
+  if (!response.ok) {
+    throw new Error(await response.text());
+  }
+}
+
+async function loadSupabaseHighScores() {
+  const [victory, vanquished] = await Promise.all([
+    loadSupabaseScoresForResult("victory", "elapsed_seconds.asc,created_at.asc"),
+    loadSupabaseScoresForResult("vanquished", "elapsed_seconds.desc,created_at.asc"),
+  ]);
+  return { victory, vanquished };
+}
+
+async function loadSupabaseScoresForResult(result, order) {
+  const params = new URLSearchParams({
+    select: "player_name,result,elapsed_seconds,win_streak,pieces_killed,pieces_lost,created_at",
+    result: `eq.${result}`,
+    order,
+    limit: String(HIGH_SCORE_LIMIT),
+  });
+  const response = await fetch(`${supabaseScoreUrl()}?${params}`, {
+    headers: supabaseHeaders(),
+  });
+
+  if (!response.ok) {
+    throw new Error(await response.text());
+  }
+
+  const rows = await response.json();
+  return rows.map(scoreFromSupabaseRow).filter(isValidHighScore);
+}
+
+function scoreFromSupabaseRow(row) {
+  return {
+    name: row.player_name,
+    time: Number(row.elapsed_seconds),
+    winStreak: Number(row.win_streak) || 0,
+    piecesKilled: Number(row.pieces_killed) || 0,
+    piecesLost: Number(row.pieces_lost) || 0,
+    at: Date.parse(row.created_at),
+  };
+}
+
+function supabaseScoreUrl() {
+  return `${SUPABASE_URL}/rest/v1/${encodeURIComponent(SUPABASE_SCORE_TABLE)}`;
+}
+
+function supabaseHeaders(prefer) {
+  const headers = {
+    apikey: SUPABASE_ANON_KEY,
+    Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
+    "Content-Type": "application/json",
+  };
+  if (prefer) headers.Prefer = prefer;
+  return headers;
 }
 
 function renderHighScoreRows(scores, emptyText) {
@@ -3561,9 +3696,17 @@ function renderHighScoreRows(scores, emptyText) {
         <span class="score-name">${escapeHtml(score.name)}</span>
         <span class="score-time">${formatMatchTime(score.time)}</span>
       </div>
-      <div class="score-detail">Killed ${score.piecesKilled ?? 0} · Lost ${score.piecesLost ?? 0}</div>
+      <div class="score-detail">
+        ${formatScoreDate(score.at)} · Streak ${score.winStreak ?? 0} · Killed ${score.piecesKilled ?? 0} · Lost ${score.piecesLost ?? 0}
+      </div>
     </li>`
   )).join("");
+}
+
+function formatScoreDate(value) {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "Today";
+  return date.toLocaleDateString(undefined, { month: "short", day: "numeric" });
 }
 
 function escapeHtml(value) {

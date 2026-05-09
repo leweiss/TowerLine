@@ -1569,6 +1569,7 @@ function classifyGestureKind(gesture) {
 
   if (isDefensiveWallGesture(gesture)) return "fort";
   if (isBladeGesture(gesture)) return "blade";
+  if (isKnightArchGesture(gesture)) return "knight";
   if (isSapperGesture(gesture)) return "sapper";
 
   if (gesture.directness > 0.86 && gesture.turnCount <= 1) return "lancer";
@@ -1609,6 +1610,21 @@ function isBladeGesture(gesture) {
   const alphaStroke = gesture.intersections > 0 && gesture.turnCount >= 2 && hasLoop && compactEnough;
 
   return alphaSized && alphaStroke;
+}
+
+function isKnightArchGesture(gesture) {
+  if (gesture.intersections > 0 || gesture.turnCount > 2) return false;
+  const bounds = gestureBounds(gesture.points);
+  const first = gesture.points[0];
+  const last = gesture.points.at(-1);
+  const endpointFloor = (first.y + last.y) / 2;
+  const archLift = endpointFloor - bounds.minY;
+  const endpointsLow = first.y > bounds.centerY && last.y > bounds.centerY;
+  const broadArch = gesture.width > gesture.height * 1.08 && gesture.height > 20;
+  const openStroke = gesture.closedness > 0.56 && gesture.directness > 0.48 && gesture.directness < 0.92;
+  const enoughBend = archLift > gesture.height * 0.46 && gesture.normalizedArea > 0.1;
+
+  return gesture.maxDim >= 34 && gesture.maxDim < 170 && endpointsLow && broadArch && openStroke && enoughBend;
 }
 
 function gestureBounds(points) {
@@ -4785,7 +4801,7 @@ function drawGestureGlyph(type, x, y, size, progress) {
 
   if (type === "knight" || type === "crown") {
     const points = type === "knight"
-      ? [[-0.75, 0.5], [-0.38, -0.5], [0, 0.48], [0.38, -0.5], [0.75, 0.5]]
+      ? [[-0.78, 0.48], [-0.58, -0.18], [-0.24, -0.58], [0.18, -0.62], [0.56, -0.18], [0.78, 0.48]]
       : [[-0.75, -0.48], [-0.38, 0.52], [0, -0.48], [0.38, 0.52], [0.75, -0.48]];
     const segments = points.length - 1;
     const maxSegment = p * segments;

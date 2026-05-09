@@ -1598,23 +1598,49 @@ function isDefensiveWallGesture(gesture) {
 }
 
 function isSapperGesture(gesture) {
-  const tail = gesture.loopTail;
-  const sizedForSapper = gesture.maxDim >= 38 && gesture.maxDim < 178;
-  const hasLoop = gesture.normalizedArea > 0.09 && gesture.normalizedArea < 0.46;
-  const hasLongStep = tail.stepRatio > 0.34 || gesture.closedness > 0.46;
-  const notWallScale = gesture.maxDim < 104 || gesture.minDim / Math.max(1, gesture.maxDim) < 0.56;
-  const notStraight = gesture.directness < 0.84 && gesture.turnCount >= 2;
+  if (gesture.intersections > 0 || gesture.turnCount > 2) return false;
+  const bounds = gestureBounds(gesture.points);
+  const first = gesture.points[0];
+  const last = gesture.points.at(-1);
+  let bottomPoint = gesture.points[0];
+  let bottomIndex = 0;
+  for (let i = 1; i < gesture.points.length; i += 1) {
+    if (gesture.points[i].y > bottomPoint.y) {
+      bottomPoint = gesture.points[i];
+      bottomIndex = i;
+    }
+  }
 
-  return sizedForSapper && hasLoop && hasLongStep && notWallScale && notStraight;
+  const bottomProgress = bottomIndex / Math.max(1, gesture.points.length - 1);
+  const endpointsHigh = first.y < bounds.centerY && last.y < bounds.centerY;
+  const pointLow = bottomPoint.y > bounds.centerY + gesture.height * 0.22;
+  const pointCentered = Math.abs(bottomPoint.x - bounds.centerX) < gesture.width * 0.3;
+  const openTop = Math.abs(first.x - last.x) > gesture.width * 0.62;
+  const bottomNearMiddle = bottomProgress > 0.28 && bottomProgress < 0.72;
+  const sizedForSapper = gesture.maxDim >= 34 && gesture.maxDim < 178;
+  const angularEnough = gesture.directness > 0.52 && gesture.directness < 0.9 && gesture.length > gesture.maxDim * 1.25;
+
+  return sizedForSapper && endpointsHigh && pointLow && pointCentered && openTop && bottomNearMiddle && angularEnough;
 }
 
 function isBladeGesture(gesture) {
-  const alphaSized = gesture.maxDim >= 34 && gesture.maxDim < 170;
-  const hasLoop = gesture.normalizedArea > 0.08 && gesture.normalizedArea < 0.5;
-  const compactEnough = gesture.minDim / Math.max(1, gesture.maxDim) > 0.38;
-  const alphaStroke = gesture.intersections > 0 && gesture.turnCount >= 2 && hasLoop && compactEnough;
+  if (gesture.intersections > 0) return false;
+  const bounds = gestureBounds(gesture.points);
+  const first = gesture.points[0];
+  const last = gesture.points.at(-1);
+  const endpointsRight = first.x > bounds.centerX && last.x > bounds.centerX;
+  const endpointsLeft = first.x < bounds.centerX && last.x < bounds.centerX;
+  const endpointsSameSide = endpointsRight || endpointsLeft;
+  const curveReachesBelly = endpointsRight
+    ? bounds.minX < bounds.centerX - gesture.width * 0.18
+    : bounds.maxX > bounds.centerX + gesture.width * 0.18;
+  const verticalSweep = Math.abs(first.y - last.y) > gesture.height * 0.54;
+  const openCurve = gesture.closedness > 0.46 && gesture.directness > 0.34 && gesture.directness < 0.82;
+  const smoothEnough = gesture.turnCount <= 2 && gesture.length > gesture.maxDim * 1.18;
+  const cSized = gesture.maxDim >= 34 && gesture.maxDim < 170;
+  const tallEnough = gesture.height > gesture.width * 1.05;
 
-  return alphaSized && alphaStroke;
+  return cSized && endpointsSameSide && curveReachesBelly && verticalSweep && openCurve && smoothEnough && tallEnough;
 }
 
 function isKnightArchGesture(gesture) {
@@ -4867,20 +4893,13 @@ function drawGestureGlyph(type, x, y, size, progress) {
 
   if (type === "blade") {
     const points = [
-      [0.58, -0.62],
-      [0.25, -0.74],
-      [-0.32, -0.46],
-      [-0.62, 0.04],
-      [-0.52, 0.52],
-      [-0.08, 0.68],
-      [0.34, 0.42],
-      [0.48, -0.02],
-      [0.26, -0.38],
-      [-0.16, -0.28],
-      [-0.3, 0.2],
-      [0.04, 0.56],
-      [0.46, 0.42],
-      [0.7, -0.54],
+      [0.58, -0.64],
+      [0.18, -0.62],
+      [-0.34, -0.42],
+      [-0.58, -0.06],
+      [-0.5, 0.28],
+      [-0.12, 0.52],
+      [0.42, 0.62],
     ];
     const segments = points.length - 1;
     const maxSegment = p * segments;
@@ -4898,14 +4917,11 @@ function drawGestureGlyph(type, x, y, size, progress) {
 
   if (type === "sapper") {
     const points = [
-      [0.48, -0.78],
-      [0.05, -0.36],
-      [-0.38, 0.14],
-      [-0.28, 0.54],
-      [0.28, 0.58],
-      [0.56, 0.18],
-      [0.36, -0.26],
-      [-0.24, -0.18],
+      [-0.66, -0.58],
+      [-0.32, 0.02],
+      [0, 0.64],
+      [0.34, 0.02],
+      [0.66, -0.58],
     ];
     const segments = points.length - 1;
     const maxSegment = p * segments;

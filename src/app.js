@@ -1568,9 +1568,9 @@ function classifyGestureKind(gesture) {
   if (gesture.length < 28 || gesture.maxDim < 18) return "pawn";
 
   if (isDefensiveWallGesture(gesture)) return "fort";
+  if (isBladeGesture(gesture)) return "blade";
   if (isSapperGesture(gesture)) return "sapper";
 
-  if (gesture.intersections > 0 && gesture.turnCount >= 2) return "blade";
   if (gesture.directness > 0.86 && gesture.turnCount <= 1) return "lancer";
 
   const zigzag = gestureZigzagSignature(gesture.points);
@@ -1600,6 +1600,15 @@ function isSapperGesture(gesture) {
   const notStraight = gesture.directness < 0.84 && gesture.turnCount >= 2;
 
   return sizedForSapper && hasLoop && hasLongStep && notWallScale && notStraight;
+}
+
+function isBladeGesture(gesture) {
+  const alphaSized = gesture.maxDim >= 34 && gesture.maxDim < 170;
+  const hasLoop = gesture.normalizedArea > 0.08 && gesture.normalizedArea < 0.5;
+  const compactEnough = gesture.minDim / Math.max(1, gesture.maxDim) > 0.38;
+  const alphaStroke = gesture.intersections > 0 && gesture.turnCount >= 2 && hasLoop && compactEnough;
+
+  return alphaSized && alphaStroke;
 }
 
 function gestureBounds(points) {
@@ -4698,13 +4707,33 @@ function drawGestureGlyph(type, x, y, size, progress) {
   }
 
   if (type === "blade") {
-    const first = Math.min(p * 2, 1);
-    const second = clamp((p - 0.5) * 2, 0, 1);
-    ctx.moveTo(x - size * 0.62, y - size * 0.62);
-    ctx.lineTo(lerp(x - size * 0.62, x + size * 0.62, first), lerp(y - size * 0.62, y + size * 0.62, first));
-    if (second > 0) {
-      ctx.moveTo(x + size * 0.62, y - size * 0.62);
-      ctx.lineTo(lerp(x + size * 0.62, x - size * 0.62, second), lerp(y - size * 0.62, y + size * 0.62, second));
+    const points = [
+      [0.58, -0.62],
+      [0.25, -0.74],
+      [-0.32, -0.46],
+      [-0.62, 0.04],
+      [-0.52, 0.52],
+      [-0.08, 0.68],
+      [0.34, 0.42],
+      [0.48, -0.02],
+      [0.26, -0.38],
+      [-0.16, -0.28],
+      [-0.3, 0.2],
+      [0.04, 0.56],
+      [0.46, 0.42],
+      [0.7, -0.54],
+    ];
+    const segments = points.length - 1;
+    const maxSegment = p * segments;
+    ctx.moveTo(x + points[0][0] * size, y + points[0][1] * size);
+    for (let i = 1; i < points.length; i += 1) {
+      const local = clamp(maxSegment - (i - 1), 0, 1);
+      if (local <= 0) break;
+      const ax = points[i - 1][0];
+      const ay = points[i - 1][1];
+      const bx = points[i][0];
+      const by = points[i][1];
+      ctx.lineTo(x + lerp(ax, bx, local) * size, y + lerp(ay, by, local) * size);
     }
   }
 

@@ -9,6 +9,12 @@ const instructionsStart = document.querySelector("#instructionsStart");
 const endScreen = document.querySelector("#endScreen");
 const resultPill = document.querySelector("#resultPill");
 const playAgainButton = document.querySelector("#playAgain");
+const highScoreForm = document.querySelector("#highScoreForm");
+const highScoreName = document.querySelector("#highScoreName");
+const saveHighScoreButton = document.querySelector("#saveHighScore");
+const highScoreStatus = document.querySelector("#highScoreStatus");
+const victoryScores = document.querySelector("#victoryScores");
+const vanquishedScores = document.querySelector("#vanquishedScores");
 const statsSummary = document.querySelector("#statsSummary");
 const statsBody = document.querySelector("#statsBody");
 const commandControls = document.querySelector("#commandControls");
@@ -129,6 +135,9 @@ const SPELL_SCREEN_UNIT = 92;
 const OPENING_HINT_DELAY = 3;
 const OPENING_HINT_FADE = 0.35;
 const OPENING_HINT_LOOP = 2.5;
+const HIGH_SCORE_KEY = "towerline.highScores.v1";
+const HIGH_SCORE_NAME_LIMIT = 20;
+const HIGH_SCORE_LIMIT = 8;
 
 let lastNow = performance.now();
 let elapsed = 0;
@@ -138,6 +147,8 @@ let finishedMatchTime = 0;
 let winner = null;
 let gamePhase = "splash";
 let openingHintDismissed = false;
+let currentScoreResult = null;
+let currentScoreSaved = false;
 
 const unitLabels = {
   pawn: "Pawn",
@@ -344,6 +355,12 @@ instructionsButton.addEventListener("click", showInstructions);
 instructionsBack.addEventListener("click", showSplash);
 instructionsStart.addEventListener("click", startGame);
 playAgainButton.addEventListener("click", startGame);
+highScoreForm.addEventListener("submit", saveCurrentHighScore);
+highScoreName.addEventListener("input", () => {
+  const clean = sanitizeHighScoreName(highScoreName.value);
+  if (highScoreName.value !== clean) highScoreName.value = clean;
+  updateHighScoreControls();
+});
 for (const button of commandButtons) {
   button.addEventListener("click", () => {
     const mode = button.dataset.waveMode;
@@ -643,6 +660,8 @@ function resetMatch() {
   finishedMatchTime = 0;
   winner = null;
   openingHintDismissed = false;
+  currentScoreResult = null;
+  currentScoreSaved = false;
   units.length = 0;
   manifests.length = 0;
   bursts.length = 0;
@@ -3399,13 +3418,136 @@ function recordLayerBroken(ring) {
 function showEndScreen() {
   const playerWon = winner?.side === PLAYER_SIDE;
   const resultText = playerWon ? "VICTORY!" : "Vanquished";
+  currentScoreResult = playerWon ? "victory" : "vanquished";
+  currentScoreSaved = false;
   resultPill.textContent = resultText;
   resultPill.dataset.result = resultText;
   resultPill.classList.toggle("is-vanquished", !playerWon);
+  prepareHighScoreEntry();
+  renderHighScores();
   renderStats();
   syncCommandControls();
   endScreen.hidden = false;
-  playAgainButton.focus({ preventScroll: true });
+  highScoreName.focus({ preventScroll: true });
+}
+
+function prepareHighScoreEntry() {
+  highScoreName.value = "";
+  highScoreName.disabled = false;
+  saveHighScoreButton.disabled = true;
+  highScoreStatus.textContent = currentScoreResult === "victory"
+    ? "Fastest victories rank lowest time first."
+    : "Vanquished runs rank longest survival first.";
+}
+
+function saveCurrentHighScore(event) {
+  event.preventDefault();
+  if (currentScoreSaved || !currentScoreResult) return;
+
+  const name = sanitizeHighScoreName(highScoreName.value).trim();
+  if (!name) {
+    highScoreStatus.textContent = "Use letters, numbers, and spaces only.";
+    updateHighScoreControls();
+    return;
+  }
+
+  const scores = loadHighScores();
+  const playerStats = playerFaction().stats;
+  const rivalStats = otherFaction(playerFaction()).stats;
+  scores[currentScoreResult].push({
+    name,
+    time: Math.max(0, finishedMatchTime),
+    piecesKilled: totalPiecesKilled(rivalStats),
+    piecesLost: totalPiecesKilled(playerStats),
+    at: Date.now(),
+  });
+  scores.victory = sortHighScores(scores.victory, "victory").slice(0, HIGH_SCORE_LIMIT);
+  scores.vanquished = sortHighScores(scores.vanquished, "vanquished").slice(0, HIGH_SCORE_LIMIT);
+  saveHighScores(scores);
+
+  currentScoreSaved = true;
+  highScoreName.disabled = true;
+  saveHighScoreButton.disabled = true;
+  highScoreStatus.textContent = "Score saved.";
+  renderHighScores();
+}
+
+function updateHighScoreControls() {
+  if (currentScoreSaved) {
+    saveHighScoreButton.disabled = true;
+    return;
+  }
+
+  saveHighScoreButton.disabled = sanitizeHighScoreName(highScoreName.value).trim().length === 0;
+}
+
+function sanitizeHighScoreName(value) {
+  return String(value ?? "")
+    .replace(/[^A-Za-z0-9 ]/g, "")
+    .replace(/\s+/g, " ")
+    .slice(0, HIGH_SCORE_NAME_LIMIT);
+}
+
+function loadHighScores() {
+  try {
+    const parsed = JSON.parse(localStorage.getItem(HIGH_SCORE_KEY) ?? "{}");
+    return {
+      victory: Array.isArray(parsed.victory) ? parsed.victory.filter(isValidHighScore) : [],
+      vanquished: Array.isArray(parsed.vanquished) ? parsed.vanquished.filter(isValidHighScore) : [],
+    };
+  } catch {
+    return { victory: [], vanquished: [] };
+  }
+}
+
+function saveHighScores(scores) {
+  localStorage.setItem(HIGH_SCORE_KEY, JSON.stringify(scores));
+}
+
+function isValidHighScore(score) {
+  return typeof score?.name === "string" && Number.isFinite(score.time);
+}
+
+function totalPiecesKilled(stats) {
+  return Object.values(stats.killed).reduce((total, count) => total + count, 0);
+}
+
+function sortHighScores(scores, result) {
+  return [...scores].sort((a, b) => {
+    const timeDelta = result === "victory" ? a.time - b.time : b.time - a.time;
+    return timeDelta || (a.at ?? 0) - (b.at ?? 0);
+  });
+}
+
+function renderHighScores() {
+  const scores = loadHighScores();
+  victoryScores.innerHTML = renderHighScoreRows(sortHighScores(scores.victory, "victory"), "No victories yet");
+  vanquishedScores.innerHTML = renderHighScoreRows(sortHighScores(scores.vanquished, "vanquished"), "No last stands yet");
+}
+
+function renderHighScoreRows(scores, emptyText) {
+  if (scores.length === 0) {
+    return `<li><div class="score-main"><span class="score-name">${emptyText}</span><span class="score-time">--</span></div></li>`;
+  }
+
+  return scores.slice(0, HIGH_SCORE_LIMIT).map((score) => (
+    `<li>
+      <div class="score-main">
+        <span class="score-name">${escapeHtml(score.name)}</span>
+        <span class="score-time">${formatMatchTime(score.time)}</span>
+      </div>
+      <div class="score-detail">Killed ${score.piecesKilled ?? 0} · Lost ${score.piecesLost ?? 0}</div>
+    </li>`
+  )).join("");
+}
+
+function escapeHtml(value) {
+  return String(value)
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#39;");
 }
 
 function renderStats() {

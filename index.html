@@ -113,6 +113,24 @@
         <div class="end-panel">
           <div id="resultPill" class="result-pill" data-result="VICTORY!">VICTORY!</div>
           <button id="playAgain" class="play-again" type="button">Play Again</button>
+          <form id="highScoreForm" class="high-score-form" autocomplete="off">
+            <label for="highScoreName">Enter Your Name</label>
+            <div class="high-score-entry">
+              <input id="highScoreName" name="highScoreName" type="text" maxlength="20" inputmode="text" pattern="[A-Za-z0-9 ]{1,20}" aria-describedby="highScoreStatus">
+              <button id="saveHighScore" type="submit">Save</button>
+            </div>
+            <div id="highScoreStatus" class="high-score-status" aria-live="polite"></div>
+          </form>
+          <section class="high-score-board" aria-label="High scores">
+            <div class="high-score-column">
+              <h3>Fastest Victories</h3>
+              <ol id="victoryScores" class="score-list"></ol>
+            </div>
+            <div class="high-score-column">
+              <h3>Longest Last Stands</h3>
+              <ol id="vanquishedScores" class="score-list"></ol>
+            </div>
+          </section>
           <div id="statsSummary" class="stats-summary"></div>
           <table class="stats-table" aria-label="Match statistics">
             <thead>

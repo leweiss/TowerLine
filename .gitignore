@@ -4,3 +4,4 @@ node_modules/
 
 # Original source videos are kept locally; compressed music lives in assets/music.
 video*.mp4
+.vercel

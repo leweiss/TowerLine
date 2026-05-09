@@ -287,7 +287,7 @@ body {
   width: min(92vw, 430px);
   max-height: min(88dvh, 760px);
   overflow: auto;
-  padding: 22px 14px 18px;
+  padding: 22px 14px calc(88px + env(safe-area-inset-bottom));
   color: #fff5d9;
   text-align: center;
 }
@@ -385,10 +385,21 @@ body {
 }
 
 .instructions-actions {
+  position: fixed;
+  z-index: 13;
+  left: 50%;
+  bottom: calc(12px + env(safe-area-inset-bottom));
   display: flex;
   justify-content: center;
+  width: min(92vw, 430px);
+  padding: 10px;
   gap: 8px;
-  margin-top: 14px;
+  border: 1px solid rgba(255, 238, 194, 0.18);
+  border-radius: 999px;
+  background: rgba(5, 7, 10, 0.82);
+  box-shadow: 0 14px 38px rgba(0, 0, 0, 0.48);
+  transform: translateX(-50%);
+  backdrop-filter: blur(10px);
 }
 
 .instructions-actions .splash-pill {

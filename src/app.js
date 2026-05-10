@@ -115,6 +115,8 @@ const SAPPER_MUSTER_POD_CAPACITY = 3;
 const SAPPER_MUSTER_SIDE_ANGLE = 1.08;
 const WAVE_ATTACK_WINDOW = 5.8;
 const BASE_DEFENSE_MARGIN = 5;
+const AI_RUSH_RESPONSE_WINDOW = 24;
+const AI_RUSH_WARNING_MARGIN = 12;
 const FLANK_ROUTE_CHANCE = 0.44;
 const FLANK_ARC_MIN = 6.2;
 const FLANK_ARC_MAX = 11.4;
@@ -1209,6 +1211,11 @@ function updateAiWaveMode(faction, enemy) {
   const attackReady = faction.energy >= 58 && economy >= 0.45;
   const oldestMuster = mustered.reduce((age, unit) => Math.max(age, matchTime - (unit.musteredAt ?? matchTime)), 0);
   const enemyPressure = units.filter((unit) => unit.faction !== faction && distance(unit, faction.wizard) < faction.commandRadius + 8).length;
+  const rush = openingRushThreat(faction);
+  if (rush.active) {
+    faction.rushAlarmUntil = Math.max(faction.rushAlarmUntil ?? 0, matchTime + 5.2);
+    if (faction.waveMode === "attack" && mustered.length < MUSTER_RELEASE_COUNT) setWaveMode(faction, "muster");
+  }
 
   if (faction.waveMode === "muster") {
     if (
@@ -1216,7 +1223,7 @@ function updateAiWaveMode(faction, enemy) {
       || oldestMuster >= MUSTER_RELEASE_TIME
       || pressureOpening && mustered.length >= 2
       || attackReady && mustered.length >= 4
-      || enemyPressure >= 6 && mustered.length >= 2
+      || enemyPressure >= 6 && mustered.length >= 2 && !rush.active
     ) {
       setWaveMode(faction, "attack");
     }
@@ -1235,11 +1242,20 @@ function musteredUnits(faction) {
 function updateControllers() {
   for (const faction of factions) {
     if (faction.controller === "player") continue;
-    if (faction.draw || matchTime < faction.nextDecision) continue;
+    const rush = faction.controller === "ai" ? openingRushThreat(faction) : null;
+    if (faction.draw) {
+      if (!shouldInterruptAiDrawForRush(faction, rush)) continue;
+      faction.draw = createAiRushDefenseDraw(faction, rush);
+      faction.nextDecision = Infinity;
+      markFactionActed(faction);
+      continue;
+    }
+
+    if (matchTime < faction.nextDecision && !rush?.urgent) continue;
     const enemy = otherFaction(faction);
     const nextDraw = faction.controller === "human"
       ? chooseHumanAction(faction, enemy)
-      : chooseAction(faction, enemy);
+      : chooseAction(faction, enemy, rush);
     if (nextDraw) {
       if (nextDraw.kind === "fort" && !fortDrawFitsCurrentLand(faction, nextDraw)) {
         queuePlannedWall(faction, nextDraw);
@@ -1259,6 +1275,7 @@ function initialControllerDelay(faction) {
 }
 
 function nextControllerDelay(faction, draw) {
+  if (draw?.emergency) return rand(0.25, 0.72);
   if (faction.controller !== "human") return rand(1.1, 2.6);
   return draw.kind === "fort" ? rand(0.55, 1.55) : rand(0.28, 1.05);
 }
@@ -1440,10 +1457,12 @@ function humanLaneForIntent(intent) {
   return rand(-7.2, 7.2);
 }
 
-function chooseAction(faction, enemy) {
+function chooseAction(faction, enemy, rush = openingRushThreat(faction)) {
   const enemyPressure = units.filter((unit) => unit.faction !== faction && distance(unit, faction.wizard) < faction.commandRadius + 8).length;
   const friendlyPressure = units.filter((unit) => unit.faction === faction && distance(unit, enemy.wizard) < enemy.commandRadius + 7).length;
   const economy = manaUpkeepMultiplier(faction);
+
+  if (rush.active) return createAiRushDefenseDraw(faction, rush);
 
   if (shouldRecoverEnergy(faction, enemyPressure, friendlyPressure)) {
     scheduleEnergyRecovery(faction, enemyPressure);
@@ -1477,6 +1496,64 @@ function chooseAction(faction, enemy) {
   if (healthyEnergy && Math.random() < 0.18 && faction.rings.length < 3) return createFortDraw(faction, "normal");
   if (lowEnergy) return createUnitDraw(faction, "cheap");
   return createUnitDraw(faction, "normal");
+}
+
+function openingRushThreat(faction) {
+  const earlyWindow = matchTime <= AI_RUSH_RESPONSE_WINDOW;
+  const warningRadius = faction.commandRadius + BASE_DEFENSE_MARGIN + AI_RUSH_WARNING_MARGIN;
+  const threats = units.filter((unit) => (
+    unit.faction !== faction
+    && unit.hp > 0
+    && distance(unit, faction.wizard) <= warningRadius
+  ));
+  const friendlyHomeUnits = units.filter((unit) => (
+    unit.faction === faction
+    && unit.hp > 0
+    && distance(unit, faction.wizard) <= warningRadius + 4
+  )).length;
+
+  if (threats.length === 0) {
+    return { active: false, urgent: false, count: 0, lane: 0, friendlyHomeUnits };
+  }
+
+  const closest = threats.reduce((best, unit) => Math.min(best, distance(unit, faction.wizard)), Infinity);
+  const weightedLane = threats.reduce((total, unit) => {
+    const urgency = 1 / Math.max(1, distance(unit, faction.wizard));
+    return total + (unit.x - faction.wizard.x) * urgency;
+  }, 0);
+  const weight = threats.reduce((total, unit) => total + 1 / Math.max(1, distance(unit, faction.wizard)), 0);
+  const lane = clamp(weightedLane / Math.max(0.001, weight) * 1.2, -7.5, 7.5);
+  const urgent = closest <= homeDefenseRadius(faction) + 3 || threats.length >= 2 || friendlyHomeUnits < threats.length * 1.4;
+  const active = earlyWindow || urgent && friendlyHomeUnits < threats.length * 2;
+
+  return { active, urgent, count: threats.length, lane, friendlyHomeUnits };
+}
+
+function shouldInterruptAiDrawForRush(faction, rush) {
+  if (faction.controller !== "ai" || !rush?.urgent || !faction.draw) return false;
+  if (faction.draw.emergency) return false;
+  if (faction.rings.length === 0 && faction.draw.kind === "fort") return false;
+  if (rush.friendlyHomeUnits >= rush.count * 2) return false;
+  return faction.energy > 12 || faction.draw.kind === "fort";
+}
+
+function createAiRushDefenseDraw(faction, rush) {
+  faction.rushAlarmUntil = Math.max(faction.rushAlarmUntil ?? 0, matchTime + 5.8);
+  if (faction.waveMode !== "muster") setWaveMode(faction, "muster");
+
+  const needsFirstWall = faction.rings.length === 0 && (!faction.draw || faction.draw.kind !== "fort");
+  if (needsFirstWall && faction.energy > 24) {
+    const draw = createFortDraw(faction, "modest");
+    draw.emergency = true;
+    draw.duration *= 0.82;
+    return draw;
+  }
+
+  const draw = createUnitDraw(faction, rush.count >= 3 || rush.urgent ? "defense" : "cheap");
+  draw.emergency = true;
+  draw.lane = rush.lane;
+  draw.duration *= 0.78;
+  return draw;
 }
 
 function shouldRecoverEnergy(faction, enemyPressure, friendlyPressure) {
@@ -1921,6 +1998,7 @@ function createUnitDraw(faction, scale = "normal") {
 
 function weightedUnitChoices(faction, scale) {
   const economy = manaUpkeepMultiplier(faction);
+  if (scale === "defense") return ["pawn", "pawn", "blade", "blade", "lancer", "lancer", "knight"];
   if (scale === "cheap" || faction.energy < ENERGY_RED || economy < 0.48) return ["pawn", "pawn", "pawn", "lancer"];
   if (scale === "pressure") {
     const enemy = otherFaction(faction);
@@ -2756,7 +2834,8 @@ function spreadCrowdedUnits(dt) {
 }
 
 function homeDefenseRadius(faction) {
-  return faction.commandRadius + BASE_DEFENSE_MARGIN;
+  const rushWarning = (faction.rushAlarmUntil ?? 0) > matchTime ? AI_RUSH_WARNING_MARGIN : 0;
+  return faction.commandRadius + BASE_DEFENSE_MARGIN + rushWarning;
 }
 
 function baseThreats(faction) {

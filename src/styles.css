@@ -45,6 +45,38 @@ body {
   touch-action: none;
 }
 
+.game-instructions-button {
+  position: fixed;
+  top: max(12px, calc(env(safe-area-inset-top) + 10px));
+  left: 50%;
+  z-index: 8;
+  min-height: 34px;
+  padding: 0 16px;
+  border: 1px solid rgba(255, 238, 194, 0.22);
+  border-radius: 999px;
+  background: rgba(8, 10, 14, 0.68);
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.36);
+  color: rgba(255, 247, 224, 0.84);
+  font: inherit;
+  font-size: 0.66rem;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  cursor: pointer;
+  touch-action: manipulation;
+  transform: translateX(-50%);
+  backdrop-filter: blur(9px);
+}
+
+.game-instructions-button[hidden] {
+  display: none;
+}
+
+.game-instructions-button:focus-visible {
+  outline: 2px solid #dfffd9;
+  outline-offset: 3px;
+}
+
 .command-controls {
   position: fixed;
   left: 50%;

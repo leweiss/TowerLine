@@ -17,6 +17,7 @@ const victoryScores = document.querySelector("#victoryScores");
 const vanquishedScores = document.querySelector("#vanquishedScores");
 const statsSummary = document.querySelector("#statsSummary");
 const statsBody = document.querySelector("#statsBody");
+const gameInstructionsButton = document.querySelector("#gameInstructionsButton");
 const commandControls = document.querySelector("#commandControls");
 const commandButtons = [...document.querySelectorAll("[data-wave-mode]")];
 
@@ -152,6 +153,7 @@ let resetTimer = 0;
 let finishedMatchTime = 0;
 let winner = null;
 let gamePhase = "splash";
+let instructionsReturnPhase = "splash";
 let openingHintDismissed = false;
 let currentScoreResult = null;
 let currentScoreSaved = false;
@@ -359,8 +361,9 @@ startGameButton.addEventListener("click", (event) => {
   startGame();
 });
 instructionsButton.addEventListener("click", showInstructions);
-instructionsBack.addEventListener("click", showSplash);
-instructionsStart.addEventListener("click", startGame);
+gameInstructionsButton.addEventListener("click", showInstructions);
+instructionsBack.addEventListener("click", leaveInstructions);
+instructionsStart.addEventListener("click", closeInstructions);
 playAgainButton.addEventListener("click", startGame);
 highScoreForm.addEventListener("submit", saveCurrentHighScore);
 highScoreName.addEventListener("input", () => {
@@ -381,31 +384,72 @@ requestAnimationFrame(frame);
 
 function startGame() {
   gamePhase = "playing";
+  instructionsReturnPhase = "splash";
   lastNow = performance.now();
   splashScreen.hidden = true;
   instructionsScreen.hidden = true;
   endScreen.hidden = true;
-  commandControls.hidden = false;
   resetMatch();
+  syncCommandControls();
   unlockAndStartMusic();
 }
 
 function showInstructions(event) {
   event?.stopPropagation();
+  const openedFromPlaying = gamePhase === "playing" && !winner;
+  instructionsReturnPhase = openedFromPlaying ? "playing" : "splash";
   gamePhase = "instructions";
   splashScreen.hidden = true;
   instructionsScreen.hidden = false;
   endScreen.hidden = true;
-  commandControls.hidden = true;
+  instructionsStart.textContent = openedFromPlaying ? "Continue" : "Begin";
+  instructionsBack.textContent = openedFromPlaying ? "Continue" : "Back";
+  syncCommandControls();
   instructionsBack.focus({ preventScroll: true });
+}
+
+function closeInstructions(event) {
+  event?.stopPropagation();
+  if (instructionsReturnPhase === "playing" && !winner) {
+    resumeGameFromInstructions();
+    return;
+  }
+
+  startGame();
+}
+
+function leaveInstructions(event) {
+  event?.stopPropagation();
+  if (instructionsReturnPhase === "playing" && !winner) {
+    resumeGameFromInstructions();
+    return;
+  }
+
+  showSplash();
+}
+
+function resumeGameFromInstructions() {
+  gamePhase = "playing";
+  instructionsReturnPhase = "splash";
+  lastNow = performance.now();
+  splashScreen.hidden = true;
+  instructionsScreen.hidden = true;
+  endScreen.hidden = true;
+  instructionsStart.textContent = "Begin";
+  instructionsBack.textContent = "Back";
+  syncCommandControls();
+  gameInstructionsButton.focus({ preventScroll: true });
 }
 
 function showSplash() {
   gamePhase = "splash";
+  instructionsReturnPhase = "splash";
   splashScreen.hidden = false;
   instructionsScreen.hidden = true;
   endScreen.hidden = true;
-  commandControls.hidden = true;
+  instructionsStart.textContent = "Begin";
+  instructionsBack.textContent = "Back";
+  syncCommandControls();
   splashScreen.focus({ preventScroll: true });
 }
 
@@ -1175,8 +1219,10 @@ function setWaveMode(faction, mode) {
 }
 
 function syncCommandControls() {
+  const hideHud = gamePhase !== "playing" || Boolean(winner);
+  if (gameInstructionsButton) gameInstructionsButton.hidden = hideHud;
   if (!commandControls) return;
-  commandControls.hidden = gamePhase !== "playing" || Boolean(winner);
+  commandControls.hidden = hideHud;
   const mode = playerFaction().waveMode ?? "muster";
 
   for (const button of commandButtons) {

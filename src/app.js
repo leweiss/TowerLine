@@ -403,9 +403,10 @@ function showInstructions(event) {
   instructionsScreen.hidden = false;
   endScreen.hidden = true;
   instructionsStart.textContent = openedFromPlaying ? "Continue" : "Begin";
-  instructionsBack.textContent = openedFromPlaying ? "Continue" : "Back";
+  instructionsBack.textContent = openedFromPlaying ? "Restart" : "Back";
+  instructionsBack.classList.toggle("is-danger", openedFromPlaying);
   syncCommandControls();
-  instructionsBack.focus({ preventScroll: true });
+  (openedFromPlaying ? instructionsStart : instructionsBack).focus({ preventScroll: true });
 }
 
 function closeInstructions(event) {
@@ -421,7 +422,7 @@ function closeInstructions(event) {
 function leaveInstructions(event) {
   event?.stopPropagation();
   if (instructionsReturnPhase === "playing" && !winner) {
-    resumeGameFromInstructions();
+    startGame();
     return;
   }
 
@@ -437,6 +438,7 @@ function resumeGameFromInstructions() {
   endScreen.hidden = true;
   instructionsStart.textContent = "Begin";
   instructionsBack.textContent = "Back";
+  instructionsBack.classList.remove("is-danger");
   syncCommandControls();
   gameInstructionsButton.focus({ preventScroll: true });
 }
@@ -449,6 +451,7 @@ function showSplash() {
   endScreen.hidden = true;
   instructionsStart.textContent = "Begin";
   instructionsBack.textContent = "Back";
+  instructionsBack.classList.remove("is-danger");
   syncCommandControls();
   splashScreen.focus({ preventScroll: true });
 }

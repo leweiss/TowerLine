@@ -29,7 +29,36 @@
         <div class="splash-copy">
           <h1 data-title="TOWERLINE">TOWERLINE</h1>
           <button id="startGameButton" class="splash-pill" type="button">Tap the Screen to Begin</button>
-          <button id="instructionsButton" class="splash-pill splash-pill-secondary" type="button">Instructions</button>
+          <div class="splash-secondary-actions">
+            <button id="instructionsButton" class="splash-pill splash-pill-secondary" type="button">Instructions</button>
+            <button id="practiceButton" class="splash-pill splash-pill-secondary" type="button">Practice</button>
+          </div>
+        </div>
+      </section>
+      <section id="practiceScreen" class="practice-screen" aria-labelledby="practiceTitle" hidden>
+        <div class="practice-panel">
+          <div class="practice-header">
+            <h2 id="practiceTitle">Practice</h2>
+            <button id="practiceBack" class="splash-pill splash-pill-secondary" type="button">Back</button>
+          </div>
+          <div class="practice-target" aria-live="polite">
+            <svg id="practiceTargetGlyph" class="practice-glyph spell-glyph" viewBox="0 0 80 56" aria-hidden="true"></svg>
+            <div class="practice-copy">
+              <strong id="practiceTargetName">LANCERS</strong>
+              <span id="practiceTargetDescription">Draw the target sigil.</span>
+            </div>
+          </div>
+          <div class="practice-pad-wrap">
+            <canvas id="practiceCanvas" class="practice-canvas" tabindex="0" aria-label="Draw the practice sigil"></canvas>
+          </div>
+          <div id="practiceResult" class="practice-result" aria-live="polite">
+            <strong id="practiceScore">Draw the sigil</strong>
+            <span id="practiceFeedback">Trace the target, then lift your finger.</span>
+          </div>
+          <div class="practice-actions">
+            <button id="practiceRetry" class="splash-pill splash-pill-secondary" type="button">Retry</button>
+            <button id="practiceNext" class="splash-pill" type="button">Next</button>
+          </div>
         </div>
       </section>
       <section id="instructionsScreen" class="instructions-screen" aria-labelledby="instructionsTitle" hidden>
@@ -77,11 +106,11 @@
             </article>
             <article class="spell-card">
               <svg class="spell-glyph" viewBox="0 0 80 56" aria-hidden="true">
-                <path d="M19 12c6 12 13 24 21 36 8-12 15-24 21-36"></path>
+                <path d="M19 27c6 7 12 14 18 21 8-13 16-25 26-37"></path>
               </svg>
               <div class="spell-copy">
                 <strong>SAPPERS</strong>
-                <span>Draw a V to create sappers: siege pieces that burrow under walls and explode, including when killed.</span>
+                <span>Draw a V or check mark to create sappers: siege pieces that burrow under walls and explode, including when killed.</span>
               </div>
             </article>
             <article class="spell-card">
@@ -90,7 +119,7 @@
               </svg>
               <div class="spell-copy">
                 <strong>BATTERING RAM</strong>
-                <span>Creates a battering ram: slow, arrow-resistant, and excellent against walls, but vulnerable to ground troops.</span>
+                <span>Draw parallel top and bottom lines joined from upper right to lower left to create a battering ram: slow, arrow-resistant, and excellent against walls.</span>
               </div>
             </article>
             <article class="spell-card">
@@ -114,6 +143,7 @@
           </div>
           <div class="instructions-actions">
             <button id="instructionsBack" class="splash-pill splash-pill-secondary" type="button">Back</button>
+            <button id="instructionsPractice" class="splash-pill splash-pill-secondary" type="button">Practice</button>
             <button id="instructionsStart" class="splash-pill" type="button">Begin</button>
           </div>
         </div>

@@ -130,6 +130,7 @@ body {
 }
 
 .splash-screen,
+.practice-screen,
 .instructions-screen,
 .end-screen {
   position: fixed;
@@ -280,6 +281,23 @@ body {
   margin-top: 8px;
 }
 
+.splash-secondary-actions {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  width: min(100%, 330px);
+  margin-top: 8px;
+  pointer-events: auto;
+}
+
+.splash-secondary-actions .splash-pill {
+  width: 100%;
+  min-width: 0;
+  margin: 0;
+  padding-inline: 12px;
+  font-size: 0.72rem;
+}
+
 .splash-pill-secondary {
   border-color: rgba(174, 238, 255, 0.34);
   background: rgba(17, 20, 29, 0.72);
@@ -306,9 +324,149 @@ body {
 }
 
 .splash-screen[hidden],
+.practice-screen[hidden],
 .instructions-screen[hidden],
 .end-screen[hidden] {
   display: none;
+}
+
+.practice-screen {
+  z-index: 11;
+  align-items: center;
+  background:
+    radial-gradient(circle at 50% 12%, rgba(116, 246, 146, 0.13), transparent 19rem),
+    radial-gradient(circle at 50% 92%, rgba(210, 102, 230, 0.13), transparent 20rem),
+    rgba(5, 7, 10, 0.9);
+  backdrop-filter: blur(8px);
+}
+
+.practice-panel {
+  display: grid;
+  grid-template-rows: auto auto minmax(230px, 1fr) auto auto;
+  gap: 10px;
+  width: min(92vw, 430px);
+  height: min(88dvh, 760px);
+  color: #fff5d9;
+}
+
+.practice-header {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+}
+
+.practice-header h2 {
+  margin: 0;
+  font-family: Papyrus, Copperplate, Georgia, "Times New Roman", serif;
+  font-size: clamp(1.9rem, 7vw, 3rem);
+  line-height: 0.92;
+  text-transform: uppercase;
+  color: #ffe8a8;
+  text-shadow:
+    0 2px 0 rgba(103, 52, 34, 0.9),
+    0 10px 22px rgba(0, 0, 0, 0.72),
+    0 0 20px rgba(114, 239, 158, 0.24);
+}
+
+.practice-header .splash-pill {
+  margin: 0;
+}
+
+.practice-target,
+.practice-result {
+  display: grid;
+  grid-template-columns: 82px minmax(0, 1fr);
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border: 1px solid rgba(255, 231, 173, 0.18);
+  border-radius: 8px;
+  background: rgba(11, 13, 18, 0.76);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
+}
+
+.practice-glyph {
+  width: 82px;
+  height: 58px;
+}
+
+.practice-copy strong,
+.practice-copy span,
+.practice-result strong,
+.practice-result span {
+  display: block;
+  text-align: left;
+}
+
+.practice-copy strong,
+.practice-result strong {
+  color: #ffe2a8;
+  font-size: 0.78rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.practice-copy span,
+.practice-result span {
+  margin-top: 4px;
+  color: rgba(255, 247, 226, 0.78);
+  font-size: 0.84rem;
+  line-height: 1.35;
+}
+
+.practice-result {
+  grid-template-columns: 1fr;
+  min-height: 64px;
+}
+
+.practice-result.is-good {
+  border-color: rgba(116, 246, 146, 0.42);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.05),
+    0 0 24px rgba(116, 246, 146, 0.12);
+}
+
+.practice-result.is-miss {
+  border-color: rgba(255, 146, 119, 0.42);
+}
+
+.practice-pad-wrap {
+  position: relative;
+  min-height: 230px;
+  border: 1px solid rgba(255, 231, 173, 0.18);
+  border-radius: 8px;
+  background:
+    linear-gradient(rgba(255, 231, 173, 0.055) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 231, 173, 0.055) 1px, transparent 1px),
+    radial-gradient(circle at 50% 50%, rgba(116, 246, 146, 0.1), transparent 13rem),
+    rgba(5, 8, 12, 0.58);
+  background-size: 18px 18px, 18px 18px, auto, auto;
+  overflow: hidden;
+}
+
+.practice-canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+  cursor: crosshair;
+  touch-action: none;
+}
+
+.practice-actions {
+  display: flex;
+  justify-content: center;
+  gap: 8px;
+  padding: 10px;
+  border: 1px solid rgba(255, 238, 194, 0.18);
+  border-radius: 999px;
+  background: rgba(5, 7, 10, 0.82);
+  box-shadow: 0 14px 38px rgba(0, 0, 0, 0.36);
+  backdrop-filter: blur(10px);
+}
+
+.practice-actions .splash-pill {
+  margin-top: 0;
 }
 
 .instructions-screen {
@@ -427,8 +585,8 @@ body {
   z-index: 13;
   left: 50%;
   bottom: calc(12px + env(safe-area-inset-bottom));
-  display: flex;
-  justify-content: center;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   width: min(92vw, 430px);
   padding: 10px;
   gap: 8px;
@@ -440,8 +598,15 @@ body {
   backdrop-filter: blur(10px);
 }
 
+.instructions-actions.has-practice {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
 .instructions-actions .splash-pill {
+  width: 100%;
+  min-width: 0;
   margin-top: 0;
+  padding-inline: 12px;
 }
 
 .end-panel {

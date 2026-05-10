@@ -3,9 +3,24 @@ const ctx = canvas.getContext("2d", { alpha: false });
 const splashScreen = document.querySelector("#splashScreen");
 const instructionsScreen = document.querySelector("#instructionsScreen");
 const startGameButton = document.querySelector("#startGameButton");
+const practiceButton = document.querySelector("#practiceButton");
 const instructionsButton = document.querySelector("#instructionsButton");
 const instructionsBack = document.querySelector("#instructionsBack");
+const instructionsPractice = document.querySelector("#instructionsPractice");
 const instructionsStart = document.querySelector("#instructionsStart");
+const instructionsActions = document.querySelector(".instructions-actions");
+const practiceScreen = document.querySelector("#practiceScreen");
+const practiceBack = document.querySelector("#practiceBack");
+const practiceTargetGlyph = document.querySelector("#practiceTargetGlyph");
+const practiceTargetName = document.querySelector("#practiceTargetName");
+const practiceTargetDescription = document.querySelector("#practiceTargetDescription");
+const practiceCanvas = document.querySelector("#practiceCanvas");
+const practiceCtx = practiceCanvas.getContext("2d");
+const practiceResult = document.querySelector("#practiceResult");
+const practiceScore = document.querySelector("#practiceScore");
+const practiceFeedback = document.querySelector("#practiceFeedback");
+const practiceRetry = document.querySelector("#practiceRetry");
+const practiceNext = document.querySelector("#practiceNext");
 const endScreen = document.querySelector("#endScreen");
 const resultPill = document.querySelector("#resultPill");
 const playAgainButton = document.querySelector("#playAgain");
@@ -141,10 +156,11 @@ const OPENING_HINT_LOOP = 2.5;
 const HIGH_SCORE_KEY = "towerline.highScores.v1";
 const WIN_STREAK_KEY = "towerline.winStreak.v1";
 const HIGH_SCORE_NAME_LIMIT = 20;
-const HIGH_SCORE_LIMIT = 8;
+const HIGH_SCORE_LIMIT = 10;
 const SUPABASE_URL = "https://ophqkvkqzxriprqmstkt.supabase.co";
 const SUPABASE_ANON_KEY = "sb_publishable_0mYVes7qaLBawLAsqNpy1A_A1dv3Ujf";
 const SUPABASE_SCORE_TABLE = "TowerLineScores";
+const PRACTICE_PAD_FADE = 0.08;
 
 let lastNow = performance.now();
 let elapsed = 0;
@@ -156,8 +172,13 @@ let gamePhase = "splash";
 let instructionsReturnPhase = "splash";
 let openingHintDismissed = false;
 let currentScoreResult = null;
+let currentScoreCandidate = null;
 let currentScoreSaved = false;
 let currentWinStreak = 0;
+let activePracticeGesture = null;
+let currentPracticeTarget = null;
+let practiceTargetIndex = -1;
+let practiceResolved = false;
 
 const unitLabels = {
   pawn: "Pawn",
@@ -168,6 +189,61 @@ const unitLabels = {
   knight: "Knight",
   crown: "Crown",
 };
+
+const practiceTargets = [
+  {
+    type: "fort",
+    name: "Defensive Wall",
+    description: "Draw a closed wall loop. Smooth, even loops score higher.",
+    svg: `
+      <path d="M16 30c0-10 8-18 20-19 13-1 25 8 26 20 1 11-8 20-22 20-13 0-24-8-24-21 0-7 4-13 10-16"></path>
+      <path d="M18 30c-8-4-8-13 0-16 7-2 12 3 9 9-2 5-7 6-11 4"></path>
+      <path d="M61 28l-11 7 12 8"></path>
+    `,
+  },
+  {
+    type: "pawn",
+    name: "Pawns",
+    description: "Tap a small dot or short mark.",
+    svg: `<path d="M33 29c4-3 10-3 14 0"></path><circle cx="40" cy="29" r="4"></circle>`,
+  },
+  {
+    type: "lancer",
+    name: "Lancers",
+    description: "Draw one clean straight line.",
+    svg: `<path d="M16 38c12-5 28-13 48-22"></path>`,
+  },
+  {
+    type: "blade",
+    name: "Blades",
+    description: "Draw a smooth open C-shaped slash.",
+    svg: `<path d="M55 12c-17 2-30 10-35 22-4 10 3 19 19 21 7 1 13 0 18-3"></path>`,
+  },
+  {
+    type: "sapper",
+    name: "Sappers",
+    description: "Draw a V or check mark with one clear angled bend.",
+    svg: `<path d="M19 27c6 7 12 14 18 21 8-13 16-25 26-37"></path>`,
+  },
+  {
+    type: "ram",
+    name: "Battering Ram",
+    description: "Draw parallel top and bottom lines joined from upper right to lower left.",
+    svg: `<path d="M19 16c11 0 25-1 39 0C49 25 38 32 25 42c12 0 25-1 38 0"></path>`,
+  },
+  {
+    type: "knight",
+    name: "Knights",
+    description: "Draw an upside-down semicircle.",
+    svg: `<path d="M17 42c4-19 15-29 25-29 12 0 21 11 22 29"></path>`,
+  },
+  {
+    type: "crown",
+    name: "Crowns",
+    description: "Draw a crown-like W.",
+    svg: `<path d="M16 13c3 11 5 21 8 31 7-9 11-17 16-25 6 8 10 16 16 25 3-10 5-20 8-31"></path>`,
+  },
+];
 
 const music = {
   enabled: false,
@@ -339,6 +415,7 @@ function resize() {
   canvas.width = Math.max(1, Math.floor(rect.width * dpr));
   canvas.height = Math.max(1, Math.floor(rect.height * dpr));
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  resizePracticeCanvas();
 }
 
 window.addEventListener("resize", resize);
@@ -346,8 +423,12 @@ canvas.addEventListener("pointerdown", beginSpellGesture);
 canvas.addEventListener("pointermove", extendSpellGesture);
 canvas.addEventListener("pointerup", endSpellGesture);
 canvas.addEventListener("pointercancel", cancelSpellGesture);
+practiceCanvas.addEventListener("pointerdown", beginPracticeGesture);
+practiceCanvas.addEventListener("pointermove", extendPracticeGesture);
+practiceCanvas.addEventListener("pointerup", endPracticeGesture);
+practiceCanvas.addEventListener("pointercancel", cancelPracticeGesture);
 splashScreen.addEventListener("click", (event) => {
-  if (event.target.closest("#instructionsButton")) return;
+  if (event.target.closest("#instructionsButton") || event.target.closest("#practiceButton")) return;
   startGame();
 });
 splashScreen.addEventListener("keydown", (event) => {
@@ -360,10 +441,15 @@ startGameButton.addEventListener("click", (event) => {
   event.stopPropagation();
   startGame();
 });
+practiceButton.addEventListener("click", showPractice);
 instructionsButton.addEventListener("click", showInstructions);
 gameInstructionsButton.addEventListener("click", showInstructions);
 instructionsBack.addEventListener("click", leaveInstructions);
+instructionsPractice.addEventListener("click", showPractice);
 instructionsStart.addEventListener("click", closeInstructions);
+practiceBack.addEventListener("click", showSplash);
+practiceRetry.addEventListener("click", retryPracticeTarget);
+practiceNext.addEventListener("click", nextPracticeTarget);
 playAgainButton.addEventListener("click", startGame);
 highScoreForm.addEventListener("submit", saveCurrentHighScore);
 highScoreName.addEventListener("input", () => {
@@ -385,8 +471,12 @@ requestAnimationFrame(frame);
 function startGame() {
   gamePhase = "playing";
   instructionsReturnPhase = "splash";
+  currentScoreResult = null;
+  currentScoreCandidate = null;
+  currentScoreSaved = false;
   lastNow = performance.now();
   splashScreen.hidden = true;
+  practiceScreen.hidden = true;
   instructionsScreen.hidden = true;
   endScreen.hidden = true;
   resetMatch();
@@ -400,13 +490,30 @@ function showInstructions(event) {
   instructionsReturnPhase = openedFromPlaying ? "playing" : "splash";
   gamePhase = "instructions";
   splashScreen.hidden = true;
+  practiceScreen.hidden = true;
   instructionsScreen.hidden = false;
   endScreen.hidden = true;
   instructionsStart.textContent = openedFromPlaying ? "Continue" : "Begin";
   instructionsBack.textContent = openedFromPlaying ? "Restart" : "Back";
+  instructionsPractice.hidden = openedFromPlaying;
+  instructionsActions.classList.toggle("has-practice", !openedFromPlaying);
   instructionsBack.classList.toggle("is-danger", openedFromPlaying);
   syncCommandControls();
   (openedFromPlaying ? instructionsStart : instructionsBack).focus({ preventScroll: true });
+}
+
+function showPractice(event) {
+  event?.stopPropagation();
+  gamePhase = "practice";
+  instructionsReturnPhase = "splash";
+  splashScreen.hidden = true;
+  practiceScreen.hidden = false;
+  instructionsScreen.hidden = true;
+  endScreen.hidden = true;
+  syncCommandControls();
+  resizePracticeCanvas();
+  nextPracticeTarget();
+  practiceCanvas.focus?.({ preventScroll: true });
 }
 
 function closeInstructions(event) {
@@ -434,10 +541,13 @@ function resumeGameFromInstructions() {
   instructionsReturnPhase = "splash";
   lastNow = performance.now();
   splashScreen.hidden = true;
+  practiceScreen.hidden = true;
   instructionsScreen.hidden = true;
   endScreen.hidden = true;
   instructionsStart.textContent = "Begin";
   instructionsBack.textContent = "Back";
+  instructionsPractice.hidden = false;
+  instructionsActions.classList.add("has-practice");
   instructionsBack.classList.remove("is-danger");
   syncCommandControls();
   gameInstructionsButton.focus({ preventScroll: true });
@@ -447,13 +557,231 @@ function showSplash() {
   gamePhase = "splash";
   instructionsReturnPhase = "splash";
   splashScreen.hidden = false;
+  practiceScreen.hidden = true;
   instructionsScreen.hidden = true;
   endScreen.hidden = true;
   instructionsStart.textContent = "Begin";
   instructionsBack.textContent = "Back";
+  instructionsPractice.hidden = false;
+  instructionsActions.classList.add("has-practice");
   instructionsBack.classList.remove("is-danger");
   syncCommandControls();
   splashScreen.focus({ preventScroll: true });
+}
+
+function resizePracticeCanvas() {
+  if (!practiceCanvas) return;
+  const rect = practiceCanvas.getBoundingClientRect();
+  if (rect.width <= 0 || rect.height <= 0) return;
+  const dpr = Math.min(window.devicePixelRatio || 1, 2);
+  practiceCanvas.width = Math.max(1, Math.floor(rect.width * dpr));
+  practiceCanvas.height = Math.max(1, Math.floor(rect.height * dpr));
+  practiceCtx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  clearPracticeCanvas();
+}
+
+function nextPracticeTarget() {
+  practiceTargetIndex = (practiceTargetIndex + 1) % practiceTargets.length;
+  setPracticeTarget(practiceTargets[practiceTargetIndex]);
+}
+
+function retryPracticeTarget() {
+  setPracticeTarget(currentPracticeTarget ?? practiceTargets[0]);
+}
+
+function setPracticeTarget(target) {
+  currentPracticeTarget = target;
+  practiceResolved = false;
+  activePracticeGesture = null;
+  practiceTargetGlyph.innerHTML = target.svg;
+  practiceTargetName.textContent = target.name;
+  practiceTargetDescription.textContent = target.description;
+  practiceResult.classList.remove("is-good", "is-miss");
+  practiceScore.textContent = "Draw the sigil";
+  practiceFeedback.textContent = "Trace the target, then lift your finger.";
+  clearPracticeCanvas();
+}
+
+function beginPracticeGesture(event) {
+  if (gamePhase !== "practice" || !currentPracticeTarget) return;
+  if (event.pointerType === "mouse" && event.button !== 0) return;
+
+  event.preventDefault();
+  practiceResolved = false;
+  activePracticeGesture = {
+    pointerId: event.pointerId,
+    points: [practicePointFromEvent(event)],
+  };
+  practiceCanvas.setPointerCapture?.(event.pointerId);
+  practiceResult.classList.remove("is-good", "is-miss");
+  practiceScore.textContent = "Casting...";
+  practiceFeedback.textContent = "Keep the stroke confident.";
+  clearPracticeCanvas();
+  drawPracticeStroke(activePracticeGesture.points, true);
+}
+
+function extendPracticeGesture(event) {
+  if (!activePracticeGesture || activePracticeGesture.pointerId !== event.pointerId) return;
+
+  event.preventDefault();
+  const point = practicePointFromEvent(event);
+  const previous = activePracticeGesture.points.at(-1);
+  if (!previous || distance(point, previous) >= 2.5) {
+    activePracticeGesture.points.push(point);
+    drawPracticeStroke(activePracticeGesture.points, true);
+  }
+}
+
+function endPracticeGesture(event) {
+  if (!activePracticeGesture || activePracticeGesture.pointerId !== event.pointerId) return;
+
+  event.preventDefault();
+  const gesture = activePracticeGesture;
+  activePracticeGesture = null;
+  practiceCanvas.releasePointerCapture?.(event.pointerId);
+  const point = practicePointFromEvent(event);
+  if (distance(point, gesture.points.at(-1) ?? point) >= 1.5) gesture.points.push(point);
+  finishPracticeGesture(gesture.points);
+}
+
+function cancelPracticeGesture(event) {
+  if (!activePracticeGesture || activePracticeGesture.pointerId !== event.pointerId) return;
+  activePracticeGesture = null;
+  practiceCanvas.releasePointerCapture?.(event.pointerId);
+}
+
+function finishPracticeGesture(points) {
+  const simplified = simplifyGesturePoints(points);
+  if (simplified.length === 0) return;
+  const analysis = analyzeSpellGesture(simplified);
+  const result = scorePracticeAttempt(analysis, currentPracticeTarget);
+  practiceResolved = true;
+  drawPracticeStroke(simplified, false, result.pass);
+  practiceResult.classList.toggle("is-good", result.pass);
+  practiceResult.classList.toggle("is-miss", !result.pass);
+  practiceScore.textContent = `${result.label} ${result.percent}%`;
+  practiceFeedback.textContent = result.feedback;
+}
+
+function scorePracticeAttempt(analysis, target) {
+  const recognized = practiceRecognizedKind(analysis);
+  const matches = recognized === target.type;
+  const label = matches
+    ? analysisQualityLabel(analysis, target.type)
+    : "Try Again";
+
+  if (!matches) {
+    return {
+      label,
+      pass: false,
+      percent: practiceMismatchScore(analysis, target.type),
+      feedback: `That read as ${practiceKindName(recognized)}. Aim for ${target.name}.`,
+    };
+  }
+
+  const percent = practiceQualityScore(analysis, target.type);
+  return {
+    label,
+    pass: percent >= 68,
+    percent,
+    feedback: practiceFeedbackForMatch(analysis, target.type, percent),
+  };
+}
+
+function practiceRecognizedKind(analysis) {
+  if (isPawnDotAnalysis(analysis)) return "pawn";
+  return analysis.kind;
+}
+
+function practiceQualityScore(analysis, targetType) {
+  if (targetType === "pawn") return clamp(Math.round(100 - analysis.maxDim * 1.3 - analysis.length * 0.35), 72, 100);
+  if (targetType === "lancer") return clamp(Math.round(analysis.directness * 112 - analysis.turnCount * 8), 50, 100);
+  if (targetType === "fort") {
+    const closure = 1 - clamp(analysis.closedness / 0.72, 0, 1);
+    return clamp(Math.round(48 + closure * 28 + (1 - analysis.shapeUnevenness) * 24), 45, 100);
+  }
+  if (targetType === "blade") {
+    const smooth = 1 - clamp(analysis.turnCount / 4, 0, 1);
+    return clamp(Math.round(70 + smooth * 14 + (1 - analysis.shapeUnevenness) * 16), 55, 100);
+  }
+  if (targetType === "sapper") return clamp(Math.round(76 + Math.min(2, analysis.turnCount) * 5 + analysis.directness * 10), 58, 100);
+  if (targetType === "knight") return clamp(Math.round(70 + analysis.normalizedArea * 40 + (1 - analysis.shapeUnevenness) * 12), 55, 100);
+  if (targetType === "ram") return clamp(Math.round(68 + Math.min(3, analysis.turnCount) * 8 + analysis.directness * 8), 52, 100);
+  if (targetType === "crown") return clamp(Math.round(66 + Math.min(4, analysis.turnCount) * 7 + (1 - analysis.shapeUnevenness) * 8), 52, 100);
+  return 70;
+}
+
+function practiceMismatchScore(analysis, targetType) {
+  if (targetType === "pawn" && (analysis.length < 32 || analysis.maxDim < 34)) return 55;
+  if (targetType === "lancer") return clamp(Math.round(analysis.directness * 60), 12, 58);
+  return clamp(Math.round(28 + (1 - analysis.shapeUnevenness) * 26), 12, 58);
+}
+
+function analysisQualityLabel(analysis, targetType) {
+  const score = practiceQualityScore(analysis, targetType);
+  if (score >= 88) return "Great";
+  if (score >= 72) return "Good";
+  return "Close";
+}
+
+function practiceFeedbackForMatch(analysis, targetType, percent) {
+  if (percent >= 88) return "Clean spell. That would cast well in battle.";
+  if (targetType === "fort" && analysis.closedness > 0.18) return "Good wall shape. Close the loop a little tighter.";
+  if (targetType === "lancer" && analysis.directness < 0.93) return "Good line. Make it straighter for a sharper lancer.";
+  if (targetType === "blade") return "The C shape read correctly. Smoother curves score higher.";
+  if (targetType === "sapper") return "The angled bend read correctly. A clearer corner makes it stronger.";
+  if (targetType === "pawn") return "Small mark recognized. Tap multiple dots in battle for a cluster.";
+  return "Recognized. Tighten the shape for a stronger cast.";
+}
+
+function practiceKindName(kind) {
+  const target = practiceTargets.find((item) => item.type === kind);
+  return target?.name ?? "another spell";
+}
+
+function practicePointFromEvent(event) {
+  const rect = practiceCanvas.getBoundingClientRect();
+  return {
+    x: clamp(event.clientX - rect.left, 0, rect.width),
+    y: clamp(event.clientY - rect.top, 0, rect.height),
+    t: elapsed,
+  };
+}
+
+function clearPracticeCanvas() {
+  const rect = practiceCanvas.getBoundingClientRect();
+  if (rect.width <= 0 || rect.height <= 0) return;
+  practiceCtx.clearRect(0, 0, rect.width, rect.height);
+}
+
+function drawPracticeStroke(points, live = false, success = null) {
+  const rect = practiceCanvas.getBoundingClientRect();
+  if (rect.width <= 0 || rect.height <= 0) return;
+  practiceCtx.fillStyle = `rgba(5, 8, 12, ${live ? PRACTICE_PAD_FADE : 0.18})`;
+  practiceCtx.fillRect(0, 0, rect.width, rect.height);
+  if (points.length === 0) return;
+
+  practiceCtx.save();
+  practiceCtx.lineCap = "round";
+  practiceCtx.lineJoin = "round";
+  practiceCtx.lineWidth = live ? 5 : 6;
+  practiceCtx.shadowBlur = live ? 18 : 26;
+  practiceCtx.shadowColor = success === false ? "#ff8b6f" : "#7df6a5";
+  practiceCtx.strokeStyle = success === false ? "#ffb19a" : success === true ? "#d9ffd0" : "#b6ffd3";
+  practiceCtx.beginPath();
+  practiceCtx.moveTo(points[0].x, points[0].y);
+  for (const point of points.slice(1)) practiceCtx.lineTo(point.x, point.y);
+  practiceCtx.stroke();
+
+  for (let i = 0; i < points.length; i += Math.max(1, Math.floor(points.length / 16))) {
+    const point = points[i];
+    practiceCtx.globalAlpha = live ? 0.36 : 0.5;
+    practiceCtx.beginPath();
+    practiceCtx.arc(point.x, point.y, live ? 2.2 : 2.8, 0, TAU);
+    practiceCtx.fillStyle = success === false ? "#ff8b6f" : "#f8ffd7";
+    practiceCtx.fill();
+  }
+  practiceCtx.restore();
 }
 
 function beginSpellGesture(event) {
@@ -715,6 +1043,7 @@ function resetMatch() {
   winner = null;
   openingHintDismissed = false;
   currentScoreResult = null;
+  currentScoreCandidate = null;
   currentScoreSaved = false;
   units.length = 0;
   manifests.length = 0;
@@ -1702,13 +2031,13 @@ function classifyGestureKind(gesture) {
   if (isBladeGesture(gesture)) return "blade";
   if (isKnightArchGesture(gesture)) return "knight";
   if (isSapperGesture(gesture)) return "sapper";
+  if (isRamGesture(gesture)) return "ram";
 
   if (gesture.directness > 0.86 && gesture.turnCount <= 1) return "lancer";
 
   const zigzag = gestureZigzagSignature(gesture.points);
   if (gesture.turnCount >= 3 && zigzag.endBias === "top") return "crown";
   if (gesture.turnCount >= 3 && zigzag.endBias === "bottom") return "knight";
-  if (gesture.turnCount >= 2 && gesture.width > gesture.height * 1.18) return "ram";
   if (gesture.turnCount >= 3) return "knight";
   return gesture.directness > 0.58 ? "lancer" : "blade";
 }
@@ -1724,29 +2053,182 @@ function isDefensiveWallGesture(gesture) {
 }
 
 function isSapperGesture(gesture) {
-  if (gesture.intersections > 0 || gesture.turnCount > 2) return false;
-  const bounds = gestureBounds(gesture.points);
-  const first = gesture.points[0];
-  const last = gesture.points.at(-1);
-  let bottomPoint = gesture.points[0];
-  let bottomIndex = 0;
-  for (let i = 1; i < gesture.points.length; i += 1) {
-    if (gesture.points[i].y > bottomPoint.y) {
-      bottomPoint = gesture.points[i];
-      bottomIndex = i;
+  if (gesture.intersections > 0 || gesture.turnCount > 3) return false;
+  const bend = gestureSapperBendSignature(gesture.points);
+  if (!bend) return false;
+
+  const riseFromFirst = bend.corner.y - bend.first.y;
+  const riseFromLast = bend.corner.y - bend.last.y;
+  const minimumRise = Math.max(5, gesture.height * 0.08);
+  const combinedRise = riseFromFirst + riseFromLast;
+  const shortSegment = Math.min(bend.firstLength, bend.lastLength);
+  const longSegment = Math.max(bend.firstLength, bend.lastLength);
+  const segmentRatio = shortSegment / Math.max(1, longSegment);
+  const endpointsSeparated = Math.abs(bend.first.x - bend.last.x) > gesture.width * 0.34
+    || distance(bend.first, bend.last) > gesture.maxDim * 0.52;
+  const cornerAwayFromEnds = bend.progress > 0.08 && bend.progress < 0.9;
+  const cornerLowEnough = riseFromFirst > minimumRise
+    && riseFromLast > minimumRise
+    && combinedRise > gesture.height * 0.52;
+  const angleBetweenStrokes = bend.angle > 0.52 && bend.angle < 2.44;
+  const sizedForSapper = gesture.maxDim >= 34 && gesture.maxDim < 178;
+  const angularEnough = gesture.length > gesture.maxDim * 1.05 && gesture.directness < 0.96;
+  const hasTwoStrokes = shortSegment >= Math.max(10, gesture.maxDim * 0.13) && segmentRatio >= 0.14;
+
+  return sizedForSapper
+    && cornerAwayFromEnds
+    && cornerLowEnough
+    && angleBetweenStrokes
+    && endpointsSeparated
+    && angularEnough
+    && hasTwoStrokes;
+}
+
+function isRamGesture(gesture) {
+  if (gesture.intersections > 0 || gesture.turnCount < 2 || gesture.turnCount > 4) return false;
+  if (gesture.maxDim < 38 || gesture.maxDim > 190) return false;
+  if (gesture.height < 18 || gesture.width < gesture.height * 0.92) return false;
+
+  const signature = gestureRamSignature(gesture.points);
+  if (!signature) return false;
+
+  const horizontalEnough = signature.topHorizontal < 0.38 && signature.bottomHorizontal < 0.38;
+  const parallelEnough = signature.parallelDelta < 0.48;
+  const diagonalEnough = signature.diagonalSlope > 0.34 && signature.diagonalSlope < 2.35;
+  const diagonalDirection = signature.diagonalDx * signature.diagonalDy < 0;
+  const verticalSeparation = signature.verticalGap > gesture.height * 0.42;
+  const sideConnection = Math.abs(signature.diagonalDx) > gesture.width * 0.34;
+  const topAndBottomPresent = signature.topSpan > gesture.width * 0.24 && signature.bottomSpan > gesture.width * 0.24;
+  const cleanSegments = signature.topDirectness > 0.68
+    && signature.bottomDirectness > 0.68
+    && signature.diagonalDirectness > 0.62;
+
+  return horizontalEnough
+    && parallelEnough
+    && diagonalEnough
+    && diagonalDirection
+    && verticalSeparation
+    && sideConnection
+    && topAndBottomPresent
+    && cleanSegments;
+}
+
+function gestureRamSignature(points) {
+  if (points.length < 4) return null;
+
+  const totalLength = gestureLength(points);
+  const minimumSegment = Math.max(10, totalLength * 0.1);
+  let best = null;
+
+  for (let firstTurn = 1; firstTurn < points.length - 2; firstTurn += 1) {
+    const firstLength = gesturePartialLength(points, 0, firstTurn);
+    if (firstLength < minimumSegment) continue;
+
+    for (let secondTurn = firstTurn + 1; secondTurn < points.length - 1; secondTurn += 1) {
+      const diagonalLength = gesturePartialLength(points, firstTurn, secondTurn);
+      const finalLength = gesturePartialLength(points, secondTurn, points.length - 1);
+      if (diagonalLength < minimumSegment || finalLength < minimumSegment) continue;
+
+      const first = points[0];
+      const upperCorner = points[firstTurn];
+      const lowerCorner = points[secondTurn];
+      const last = points.at(-1);
+      const firstSegment = segmentMetrics(first, upperCorner, firstLength);
+      const diagonalSegment = segmentMetrics(upperCorner, lowerCorner, diagonalLength);
+      const finalSegment = segmentMetrics(lowerCorner, last, finalLength);
+      if (!firstSegment || !diagonalSegment || !finalSegment) continue;
+      if (diagonalSegment.dx * diagonalSegment.dy >= 0) continue;
+
+      const horizontalOne = Math.abs(firstSegment.dy) / Math.max(1, firstSegment.directLength);
+      const horizontalThree = Math.abs(finalSegment.dy) / Math.max(1, finalSegment.directLength);
+      const parallelDelta = Math.abs(angleDelta(firstSegment.angle, finalSegment.angle));
+      const diagonalSlope = Math.abs(diagonalSegment.dy) / Math.max(1, Math.abs(diagonalSegment.dx));
+      const verticalGap = Math.abs((first.y + upperCorner.y) * 0.5 - (lowerCorner.y + last.y) * 0.5);
+      const score = horizontalOne
+        + horizontalThree
+        + parallelDelta * 0.72
+        + Math.abs(diagonalSlope - 0.78) * 0.18
+        + (1 - firstSegment.directness) * 0.5
+        + (1 - diagonalSegment.directness) * 0.5
+        + (1 - finalSegment.directness) * 0.5;
+
+      if (!best || score < best.score) {
+        best = {
+          score,
+          topHorizontal: horizontalOne,
+          bottomHorizontal: horizontalThree,
+          parallelDelta,
+          diagonalSlope,
+          diagonalDx: diagonalSegment.dx,
+          diagonalDy: diagonalSegment.dy,
+          verticalGap,
+          topSpan: Math.abs(firstSegment.dx),
+          bottomSpan: Math.abs(finalSegment.dx),
+          topDirectness: firstSegment.directness,
+          diagonalDirectness: diagonalSegment.directness,
+          bottomDirectness: finalSegment.directness,
+        };
+      }
     }
   }
 
-  const bottomProgress = bottomIndex / Math.max(1, gesture.points.length - 1);
-  const endpointsHigh = first.y < bounds.centerY && last.y < bounds.centerY;
-  const pointLow = bottomPoint.y > bounds.centerY + gesture.height * 0.22;
-  const pointCentered = Math.abs(bottomPoint.x - bounds.centerX) < gesture.width * 0.3;
-  const openTop = Math.abs(first.x - last.x) > gesture.width * 0.62;
-  const bottomNearMiddle = bottomProgress > 0.28 && bottomProgress < 0.72;
-  const sizedForSapper = gesture.maxDim >= 34 && gesture.maxDim < 178;
-  const angularEnough = gesture.directness > 0.52 && gesture.directness < 0.9 && gesture.length > gesture.maxDim * 1.25;
+  return best;
+}
 
-  return sizedForSapper && endpointsHigh && pointLow && pointCentered && openTop && bottomNearMiddle && angularEnough;
+function segmentMetrics(a, b, pathLength) {
+  const dx = b.x - a.x;
+  const dy = b.y - a.y;
+  const directLength = Math.hypot(dx, dy);
+  if (directLength <= 0) return null;
+
+  return {
+    dx,
+    dy,
+    directLength,
+    directness: directLength / Math.max(1, pathLength),
+    angle: Math.atan2(dy, dx),
+  };
+}
+
+function gestureSapperBendSignature(points) {
+  if (points.length < 3) return null;
+
+  let cornerIndex = 1;
+  for (let i = 2; i < points.length - 1; i += 1) {
+    if (points[i].y > points[cornerIndex].y) cornerIndex = i;
+  }
+
+  const first = points[0];
+  const corner = points[cornerIndex];
+  const last = points.at(-1);
+  const firstLength = gesturePartialLength(points, 0, cornerIndex);
+  const lastLength = gesturePartialLength(points, cornerIndex, points.length - 1);
+  if (firstLength <= 0 || lastLength <= 0) return null;
+
+  const angle = vectorAngle(first.x - corner.x, first.y - corner.y, last.x - corner.x, last.y - corner.y);
+  return {
+    first,
+    corner,
+    last,
+    firstLength,
+    lastLength,
+    angle,
+    progress: firstLength / Math.max(1, firstLength + lastLength),
+  };
+}
+
+function gesturePartialLength(points, startIndex, endIndex) {
+  let total = 0;
+  for (let i = startIndex + 1; i <= endIndex; i += 1) total += distance(points[i - 1], points[i]);
+  return total;
+}
+
+function vectorAngle(ax, ay, bx, by) {
+  const aLength = Math.hypot(ax, ay);
+  const bLength = Math.hypot(bx, by);
+  if (aLength <= 0 || bLength <= 0) return 0;
+  const cosine = clamp((ax * bx + ay * by) / (aLength * bLength), -1, 1);
+  return Math.acos(cosine);
 }
 
 function isBladeGesture(gesture) {
@@ -3605,29 +4087,49 @@ function showEndScreen() {
   currentScoreResult = playerWon ? "victory" : "vanquished";
   currentScoreSaved = false;
   currentWinStreak = updateWinStreak(playerWon);
+  currentScoreCandidate = createCurrentHighScore("");
   resultPill.textContent = resultText;
   resultPill.dataset.result = resultText;
   resultPill.classList.toggle("is-vanquished", !playerWon);
-  prepareHighScoreEntry();
+  updateHighScoreEntryQualification(loadHighScores(), { reset: true });
   renderHighScores();
   renderStats();
   syncCommandControls();
   endScreen.hidden = false;
-  highScoreName.focus({ preventScroll: true });
+  if (!highScoreForm.hidden) highScoreName.focus({ preventScroll: true });
 }
 
-function prepareHighScoreEntry() {
-  highScoreName.value = "";
+function updateHighScoreEntryQualification(scores, { reset = false } = {}) {
+  if (currentScoreSaved) return;
+
+  if (gamePhase !== "ended" || !currentScoreResult || !currentScoreCandidate) {
+    highScoreForm.hidden = true;
+    return;
+  }
+
+  const qualifies = highScoreQualifies(currentScoreCandidate, currentScoreResult, scores);
+  highScoreForm.hidden = !qualifies;
+
+  if (!qualifies) {
+    highScoreName.value = "";
+    highScoreName.disabled = true;
+    saveHighScoreButton.disabled = true;
+    highScoreStatus.textContent = "";
+    return;
+  }
+
+  if (reset) highScoreName.value = "";
   highScoreName.disabled = false;
-  saveHighScoreButton.disabled = true;
   highScoreStatus.textContent = currentScoreResult === "victory"
-    ? "Fastest victories rank lowest time first."
-    : "Vanquished runs rank longest survival first.";
+    ? "New top 10 victory. Fastest victories rank lowest time first."
+    : "New top 10 last stand. Vanquished runs rank longest survival first.";
+  updateHighScoreControls();
 }
 
 async function saveCurrentHighScore(event) {
   event.preventDefault();
   if (currentScoreSaved || !currentScoreResult) return;
+  if (!currentScoreCandidate || !highScoreQualifies(currentScoreCandidate, currentScoreResult, loadHighScores())) return;
 
   const name = sanitizeHighScoreName(highScoreName.value).trim();
   if (!name) {
@@ -3638,7 +4140,7 @@ async function saveCurrentHighScore(event) {
 
   saveHighScoreButton.disabled = true;
   highScoreStatus.textContent = "Saving score...";
-  const score = createCurrentHighScore(name);
+  const score = { ...currentScoreCandidate, name };
   addLocalHighScore(score, currentScoreResult);
 
   currentScoreSaved = true;
@@ -3677,7 +4179,7 @@ function addLocalHighScore(score, result) {
 }
 
 function updateHighScoreControls() {
-  if (currentScoreSaved) {
+  if (currentScoreSaved || highScoreForm.hidden) {
     saveHighScoreButton.disabled = true;
     return;
   }
@@ -3747,6 +4249,12 @@ function sortHighScores(scores, result) {
   });
 }
 
+function highScoreQualifies(score, result, scores) {
+  if (!score || !result || !scores?.[result]) return false;
+  const ranked = sortHighScores([...scores[result], score], result);
+  return ranked.indexOf(score) >= 0 && ranked.indexOf(score) < HIGH_SCORE_LIMIT;
+}
+
 function renderHighScores() {
   const scores = loadHighScores();
   renderHighScoreLists(scores);
@@ -3763,6 +4271,7 @@ async function refreshRemoteHighScores() {
     const remoteScores = await loadSupabaseHighScores();
     saveHighScores(remoteScores);
     renderHighScoreLists(remoteScores);
+    updateHighScoreEntryQualification(remoteScores);
   } catch (error) {
     console.warn("TowerLine high score online load failed", error);
   }
@@ -5045,11 +5554,9 @@ function drawGestureGlyph(type, x, y, size, progress) {
 
   if (type === "sapper") {
     const points = [
-      [-0.66, -0.58],
-      [-0.32, 0.02],
-      [0, 0.64],
-      [0.34, 0.02],
-      [0.66, -0.58],
+      [-0.64, -0.08],
+      [-0.18, 0.62],
+      [0.72, -0.66],
     ];
     const segments = points.length - 1;
     const maxSegment = p * segments;
